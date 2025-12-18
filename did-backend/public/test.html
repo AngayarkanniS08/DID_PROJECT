@@ -32,10 +32,32 @@
             //read the value from the input box
             const websiteUrl = websiteUrlInput.value;
 
-            // for now ,just log it so we see it works
-            console.log('website URL entered:', websiteUrl);
+            //show something immediately in the output box
+            challengeOutput.textContent = 'sending request...';
 
-           });
+            //call our backend: POST http://localhost:3000/api/challenge
+            fetch('http://localhost:3000/api/challenge', {
+                method: 'POST',
+                headers:{
+                    'Content-Type': 'application/json',       //tell server body is JSON [web:39]
+                },
+                body: JSON.stringify({websiteUrl:websiteUrl})   //send {"websiteurl":"..."}
+            })
+                .then(response => response.json())      //parse json from response
+
+               .then(data => {
+                //show the json nicely inside <pre>
+                challengeOutput.textContent = JSON.stringify(data, null, 2);
+                console.log('Challenge response:', data);
+               })
+               .catch(error => {
+                // if something fails (server down, CORS, etc.)
+                console.error('Error calling /api/challenge:',error);
+                challengeOutput.textContent = 'Error:' + error;
+                
+               });
+               
+            });
       </script>
 </body>
 </html>

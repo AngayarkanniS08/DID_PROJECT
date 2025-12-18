@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset= "UTF-8">
+    <title>DID Login Test Page</title>
+</head>
+<body>
+    <h1>DID Login Test</h1>
+    <label>
+      website URL:
+      <input id = "websiteUrlInput" type = "text" placeholder="https://example.com">
+      </label>
+      <button id = "createchallengeBtn">Create challenge</button>
+      <h2>Challenge response</h2>
+      <pre id="challengeOutput">(nothing yet)</pre>
+      <script>
+        //Get reference to the HTML elements so we can use them in JS
+        const websiteUrlInput = document.getElementById('websiteUrlInput');
+    // the text box
+        const createchallengeBtn = document.getElementById('createchallengeBtn');  //the button
+        const challengeOutput = document.getElementById('challengeOutput');
+
+        //the pre box
+        
+           // For now, just log them to check
+           console.log('websiteUrlInput:', websiteUrlInput);
+           console.log('createChallengeBtn:',createchallengeBtn)
+           console.log('challengeOutput:', challengeOutput);
+
+           // when the user clicks the 'create challenge' button...
+           createchallengeBtn.addEventListener('click',() =>{
+            //read the value from the input box
+            const websiteUrl = websiteUrlInput.value;
+
+            // for now ,just log it so we see it works
+            console.log('website URL entered:', websiteUrl);
+
+           });
+      </script>
+</body>
+</html>

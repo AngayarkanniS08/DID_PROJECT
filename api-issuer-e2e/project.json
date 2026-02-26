@@ -1,0 +1,17 @@
+{
+  "name": "api-issuer-e2e",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "implicitDependencies": ["api-issuer"],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{e2eProjectRoot}"],
+      "options": {
+        "jestConfig": "api-issuer-e2e/jest.config.cts",
+        "passWithNoTests": true
+      },
+      "dependsOn": ["api-issuer:build", "api-issuer:serve"]
+    }
+  }
+}

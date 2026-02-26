@@ -1,0 +1,250 @@
+/* ══════════════════════════════════════════════
+   IMPORT MODAL STYLES — ImportModal.css
+══════════════════════════════════════════════ */
+.import-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(4, 7, 12, 0.7);
+    backdrop-filter: blur(12px) saturate(160%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn .3s ease-out;
+}
+
+.import-modal-card {
+    background: var(--bg-card);
+    width: 100%;
+    max-width: 440px;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+    animation: modalScale .4s cubic-bezier(.22, 1, .36, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.import-modal-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--em), transparent);
+}
+
+.import-modal-card h2 {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text);
+}
+
+.import-modal-card p {
+    font-size: 14px;
+    color: var(--text-sub);
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.import-modal-card input[type="file"] {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    margin-bottom: 24px;
+    outline: none;
+}
+
+.import-modal-card input[type="file"]:hover {
+    border-color: var(--em-light);
+    background: rgba(16, 185, 129, 0.04);
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 24px;
+}
+
+.modal-actions button {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    font-family: var(--font-body);
+    outline: none;
+    min-width: 80px;
+    height: 32px;
+}
+
+.modal-actions button:first-child {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-sub);
+}
+
+.modal-actions button:first-child:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+}
+
+.modal-actions button.em-bg {
+    background: var(--em);
+    border: 1px solid var(--em-light);
+    color: #051510;
+    box-shadow: 0 2px 6px var(--em-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: auto;
+    min-width: 120px;
+}
+
+.modal-actions button.em-bg svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2.5;
+}
+
+.modal-actions button.em-bg:hover:not(:disabled) {
+    background: var(--em-light);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px var(--em-glow);
+}
+
+.modal-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+
+/* ── SUCCESS STATE ── */
+.success-icon {
+    width: 56px;
+    height: 56px;
+    background: var(--em);
+    color: #051510;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 20px;
+    box-shadow: 0 0 20px var(--em-glow);
+}
+
+.result-stats {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+}
+
+.stat-item .label {
+    color: var(--text-muted);
+}
+
+.stat-item .value {
+    color: var(--text);
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+.stat-item.highlight .value {
+    color: #fca311;
+    /* Gold for skipped */
+}
+
+/* ── ERROR BANNER ── */
+.error-banner {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #ff8080;
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: left;
+}
+
+/* ── MODAL ANIMATIONS ── */
+@keyframes modalScale {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* ── CREDENTIAL PREVIEW ── */
+.credential-preview-card {
+    max-width: 520px !important;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.vc-data-wrap {
+    animation: slideUp .4s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.student-profile-mini {
+    transition: all 0.3s ease;
+}
+
+.student-profile-mini:hover {
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+}

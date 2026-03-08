@@ -46,13 +46,16 @@ export const StudentSharePage: React.FC = () => {
     );
 
     // This is the data we encode in the QR
-    const qrData = JSON.stringify({
-        sub: student.did,
-        name: student.name,
-        roll: student.rollNumber,
-        iss: "SecureVerify_Institution",
-        sig: student.credentials?.[0]?.signature || "UN_SIGNED"
-    });
+    // We now use the exact payload that was signed by the backend!
+    const qrData = student.credentials?.[0]?.payload
+        ? JSON.stringify(student.credentials[0].payload)
+        : JSON.stringify({
+            sub: student.did,
+            name: student.name,
+            roll: student.rollNumber,
+            iss: "SecureVerify_Institution",
+            error: "No signed payload found"
+        });
 
     return (
         <div className="share-root">

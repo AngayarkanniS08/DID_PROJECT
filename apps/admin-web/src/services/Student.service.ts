@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Note: Replace with your actual backend URL or use an Axios instance
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://192.168.1.6:3000/api';
 
 export const studentService = {
     bulkImport: async (organizationId: string, students: any[]) => {
@@ -41,6 +41,15 @@ export const studentService = {
             return response.data;
         } catch (error) {
             console.error('Batch Issue Error:', error);
+            throw error;
+        }
+    },
+    getIssuerConfig: async () => {
+        try {
+            const response = await axios.get(`${API_URL}/students/config/issuer`);
+            return response.data;
+        } catch (error) {
+            console.error('Get Issuer Config Error:', error);
             throw error;
         }
     }

@@ -19,8 +19,15 @@ export class StudentsService {
         @InjectRepository(Credential)
         private credentialsRepository: Repository<Credential>,
     ) {
-        this.issuerWallet = KeyManager.generateWallet();
-        console.log('Issuer Private Key:', this.issuerWallet.privateKey);
+        // Use a fixed development key so QR codes don't break on every restart!
+        const DEV_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+        this.issuerWallet = new Wallet(DEV_PRIVATE_KEY);
+
+        console.log('Issuer Address:', this.issuerWallet.address);
+    }
+
+    getIssuerAddress(): string {
+        return this.issuerWallet.address;
     }
 
     // ── THE BULK IMPORT ENGINE ──
@@ -191,7 +198,7 @@ export class StudentsService {
         const expirationDate = new Date();
         expirationDate.setFullYear(expirationDate.getFullYear() + 1);
 
-        const vcPayload = {
+        const vcPayload: any = {
             sub: student.did,
             iss: DIDGenerator.generateDID(this.issuerWallet.address),
             nbf: Math.floor(issuanceDate.getTime() / 1000),
@@ -204,17 +211,20 @@ export class StudentsService {
                     studentId: student.id,
                     name: student.name,
                     email: student.email,
+                    roll: student.rollNumber
                 }
             }
         };
 
         const signature = await Signer.signObject(vcPayload, this.issuerWallet);
+        vcPayload.sig = signature;
 
         const credential = this.credentialsRepository.create({
             type: ['StudentCredential'],
             issuanceDate,
             expirationDate,
             signature,
+            payload: vcPayload,
             student
         });
 
@@ -253,7 +263,7 @@ export class StudentsService {
             }
 
             try {
-                const vcPayload = {
+                const vcPayload: any = {
                     sub: student.did,
                     iss: DIDGenerator.generateDID(this.issuerWallet.address),
                     nbf: Math.floor(issuanceDate.getTime() / 1000),
@@ -266,17 +276,20 @@ export class StudentsService {
                             studentId: student.id,
                             name: student.name,
                             email: student.email,
+                            roll: student.rollNumber
                         }
                     }
                 };
 
                 const signature = await Signer.signObject(vcPayload, this.issuerWallet);
+                vcPayload.sig = signature;
 
                 const credential = this.credentialsRepository.create({
                     type: ['StudentCredential'],
                     issuanceDate,
                     expirationDate,
                     signature,
+                    payload: vcPayload,
                     student
                 });
 

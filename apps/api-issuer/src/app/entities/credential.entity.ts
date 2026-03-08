@@ -18,6 +18,9 @@ export class Credential {
     @Column('text')
     signature: string;
 
+    @Column('json', { nullable: true })
+    payload: any;
+
     @ManyToOne(() => Student, (student) => student.credentials)
     student: Student;
 }

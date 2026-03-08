@@ -13,27 +13,46 @@ export class StudentsController {
         return { status: 'Students Controller is alive' };
     }
 
+    @Get('config/issuer')
+    getIssuerConfig() {
+        return { address: this.studentsService.getIssuerAddress() };
+    }
+
     @Post('upload')
     async bulkImport(@Body() body: { students: any[], organizationId: string }) {
-        const { students, organizationId } = body;
+        try {
+            const { students, organizationId } = body;
 
-        // Step 1: Basic Bouncer Check (Validation)
-        if (!organizationId) {
-            throw new HttpException('Organization ID is missing', HttpStatus.BAD_REQUEST);
+            // Step 1: Basic Bouncer Check (Validation)
+            if (!organizationId) {
+                return {
+                    success: false,
+                    message: 'Organization ID is missing',
+                };
+            }
+            if (!students || !Array.isArray(students)) {
+                return {
+                    success: false,
+                    message: 'No student data provided or invalid format',
+                };
+            }
+
+            // Step 2: Hand over to the Brain (Service)
+            const report = await this.studentsService.bulkCreateStudents(students, organizationId);
+
+            // Step 3: Return the response to React Dashboard
+            return {
+                success: true,
+                message: 'Bulk import processed successfully',
+                data: report,
+            };
+        } catch (err: any) {
+            this.logger.error(`Bulk import failed: ${err.message}`, err.stack);
+            return {
+                success: false,
+                message: `Backend Error: ${err.message}`,
+            };
         }
-        if (!students || !Array.isArray(students) || students.length === 0) {
-            throw new HttpException('No student data provided or invalid format', HttpStatus.BAD_REQUEST);
-        }
-
-        // Step 2: Hand over to the Brain (Service)
-        const report = await this.studentsService.bulkCreateStudents(students, organizationId);
-
-        // Step 3: Return the response to React Dashboard
-        return {
-            success: true,
-            message: 'Bulk import processed successfully',
-            data: report,
-        };
     }
 
     @Post()

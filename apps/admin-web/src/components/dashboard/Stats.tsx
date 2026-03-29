@@ -63,7 +63,7 @@ export function MiniCard({ title, value, valueColor, sub, TitleIcon, children }:
                 {TitleIcon && <TitleIcon />}
                 {title}
             </div>
-            <div className="mini-value" style={valueColor ? { color: `var(--${valueColor})` } : {}}>
+            <div className="mini-value" style={valueColor ? { color: `hsl(var(--${valueColor}))` } : {}}>
                 {value}
             </div>
             {sub && <div className="mini-sub">{sub}</div>}

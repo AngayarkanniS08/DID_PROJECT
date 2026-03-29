@@ -1,11 +1,18 @@
-import { Controller, Get, Post, Body, Param, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, HttpException, HttpStatus, Logger, UseGuards, UploadedFile } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { CreateStudentDto } from '../dto/create-student.dto';
 import { Student } from '../entities/student.entity';
 import { Credential } from '../entities/credential.entity';
+// apps/api-issuer/src/app/students/students.controller.ts
+import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/Jwt-auth.guard';
+import { Public } from '../auth/public.decorator';
 
 @Controller('students')
+@UseGuards(JwtAuthGuard)
 export class StudentsController {
+    private readonly logger = new Logger(StudentsController.name);
+
     constructor(private readonly studentsService: StudentsService) { }
 
     @Get('health')
@@ -19,6 +26,7 @@ export class StudentsController {
     }
 
     @Post('upload')
+    @UseGuards(JwtAuthGuard) 
     async bulkImport(@Body() body: { students: any[], organizationId: string }) {
         try {
             const { students, organizationId } = body;
@@ -81,5 +89,11 @@ export class StudentsController {
     @Post(':id/issue')
     issueCredential(@Param('id') id: string): Promise<Credential> {
         return this.studentsService.issueCredential(id);
+    }
+
+    @Public()
+    @Post('verify')
+    async verify(@Body() payload: any) {
+        return this.studentsService.verifyCredential(payload);
     }
 }

@@ -54,7 +54,7 @@ export function ActivityTable({
     };
 
     return (
-        <div className="card" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div className="card" style={{ maxHeight: '400px', display: 'flex', flexDirection: 'column' }}>
             <div className="card-header">
                 <div className="card-title">
                     <Icon.List />

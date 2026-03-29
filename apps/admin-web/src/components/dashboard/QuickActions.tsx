@@ -145,7 +145,7 @@ export function QuickActions({ onIssue, onImport, onVerify }: QuickActionsProps)
                 </div>
                 <div className="quick-actions">
                     <button className="btn-issue" onClick={onIssue}>
-                        <Icon.Plus /> Issue New ID
+                        <Icon.PlusCircle /> Issue New ID
                     </button>
                     <button className="btn-import" onClick={() => setIsImportModalOpen(true)}>
                         <Icon.Upload /> Bulk Import CSV

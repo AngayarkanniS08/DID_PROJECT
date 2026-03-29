@@ -4,7 +4,7 @@ import { Repository, In } from 'typeorm';
 import { Student, StudentStatus } from '../entities/student.entity';
 import { Credential } from '../entities/credential.entity';
 import { CreateStudentDto } from '../dto/create-student.dto';
-import { KeyManager, Signer, DIDGenerator, STUDENT_CREDENTIAL_SCHEMA } from '@secure-verify/did-core';
+import { KeyManager, Signer, Verifier, DIDGenerator, STUDENT_CREDENTIAL_SCHEMA } from '@secure-verify/did-core';
 import { Wallet, HDNodeWallet } from 'ethers';
 import * as crypto from 'crypto';
 
@@ -28,6 +28,18 @@ export class StudentsService {
 
     getIssuerAddress(): string {
         return this.issuerWallet.address;
+    }
+
+    async verifyCredential(payload: any) {
+        const issuerAddress = this.getIssuerAddress();
+        const result = Verifier.verifyIdentity(payload, issuerAddress);
+
+        return {
+            success: result.isValid,
+            recoveredAddress: result.recoveredAddress,
+            issuerAddress: issuerAddress,
+            error: result.error
+        };
     }
 
     // ── THE BULK IMPORT ENGINE ──
@@ -175,8 +187,19 @@ export class StudentsService {
         if (!createStudentDto.totpSecret) {
             createStudentDto.totpSecret = crypto.randomBytes(20).toString('hex');
         }
-        const student = this.studentsRepository.create(createStudentDto);
-        return this.studentsRepository.save(student);
+        // 2. Save the Student record first (Status: UNISSUED)
+        const savedStudent = await this.studentsRepository.save(
+            this.studentsRepository.create(createStudentDto)
+        );
+        // 3. Immediately Issue the Credential
+        try {
+            await this.issueCredential(savedStudent.id);
+            // Refresh the student object to return the ACTIVE status
+            return this.findOne(savedStudent.id);
+        } catch (err) {
+            console.error("Auto-issuance failed for student:", savedStudent.id, err);
+            return savedStudent; // Return at least the student record
+        }
     }
 
     async findAll(): Promise<Student[]> {
@@ -194,43 +217,51 @@ export class StudentsService {
     async issueCredential(id: string): Promise<Credential> {
         const student = await this.findOne(id);
 
-        const issuanceDate = new Date();
-        const expirationDate = new Date();
-        expirationDate.setFullYear(expirationDate.getFullYear() + 1);
+    const issuanceDate = new Date();
+    const expirationDate = new Date();
+    expirationDate.setFullYear(expirationDate.getFullYear() + 1);
 
-        const vcPayload: any = {
-            sub: student.did,
-            iss: DIDGenerator.generateDID(this.issuerWallet.address),
-            nbf: Math.floor(issuanceDate.getTime() / 1000),
-            exp: Math.floor(expirationDate.getTime() / 1000),
-            vc: {
-                '@context': STUDENT_CREDENTIAL_SCHEMA['@context'],
-                type: ['VerifiableCredential', 'StudentCredential'],
-                credentialSubject: {
-                    id: student.did,
-                    studentId: student.id,
-                    name: student.name,
-                    email: student.email,
-                    roll: student.rollNumber
-                }
-            }
-        };
+    const vcPayload: any = {
+        "@context": [
+            "https://www.w3.org/2018/credentials/v1"
+        ],
+        "type": ["VerifiableCredential", "StudentCredential"],
+        "issuer": DIDGenerator.generateDID(this.issuerWallet.address),
+        "issuanceDate": issuanceDate.toISOString(),
+        "expirationDate": expirationDate.toISOString(),
+        "credentialSubject": {
+            "id": student.did,
+            "name": student.name,
+            "rollNumber": student.rollNumber,
+            "email": student.email,
+            "department": student.department
+        }
+    };
 
-        const signature = await Signer.signObject(vcPayload, this.issuerWallet);
-        vcPayload.sig = signature;
+    const signature = await Signer.signObject(vcPayload, this.issuerWallet);
+    vcPayload.sig = signature; // High-level signature for backward compatibility
+    
+    // Add standard proof block
+    vcPayload.proof = {
+        type: "EthereumEip712Signature2021",
+        proofPurpose: "assertionMethod",
+        verificationMethod: `${vcPayload.issuer}#controller`,
+        created: issuanceDate.toISOString(),
+        jws: signature
+    };
 
-        const credential = this.credentialsRepository.create({
-            type: ['StudentCredential'],
-            issuanceDate,
-            expirationDate,
-            signature,
-            payload: vcPayload,
-            student
-        });
+    const credential = this.credentialsRepository.create({
+        type: ['StudentCredential'],
+        issuanceDate,
+        expirationDate,
+        signature,
+        payload: vcPayload,
+        student
+    });
 
-        // Update student status to ACTIVE
-        student.status = StudentStatus.ACTIVE;
-        await this.studentsRepository.save(student);
+    // Update student status to ACTIVE
+    student.status = StudentStatus.ACTIVE;
+    await this.studentsRepository.save(student);
 
         return this.credentialsRepository.save(credential);
     }
@@ -238,68 +269,65 @@ export class StudentsService {
     async batchIssueCredentials(ids: string[]): Promise<any> {
         this.logger.log(`Batch issuing credentials for ${ids.length} students`);
 
-        const students = await this.studentsRepository.find({
-            where: { id: In(ids) }
-        });
+    const students = await this.studentsRepository.find({
+        where: { id: In(ids) }
+    });
 
-        const results = {
-            total: ids.length,
-            success: 0,
-            failed: 0,
-            alreadyIssued: 0
-        };
+    const results = {
+        total: ids.length,
+        success: 0,
+        failed: 0,
+        alreadyIssued: 0
+    };
 
-        const credentialsToSave = [];
-        const studentsToUpdate = [];
+    const credentialsToSave = [];
+    const studentsToUpdate = [];
 
-        const issuanceDate = new Date();
-        const expirationDate = new Date();
-        expirationDate.setFullYear(expirationDate.getFullYear() + 1);
+    const issuanceDate = new Date();
+    const expirationDate = new Date();
+    expirationDate.setFullYear(expirationDate.getFullYear() + 1);
 
-        for (const student of students) {
-            if (student.status === StudentStatus.ACTIVE) {
-                results.alreadyIssued++;
-                continue;
-            }
+    for(const student of students) {
+        if (student.status === StudentStatus.ACTIVE) {
+            results.alreadyIssued++;
+            continue;
+        }
 
-            try {
-                const vcPayload: any = {
-                    sub: student.did,
-                    iss: DIDGenerator.generateDID(this.issuerWallet.address),
-                    nbf: Math.floor(issuanceDate.getTime() / 1000),
-                    exp: Math.floor(expirationDate.getTime() / 1000),
-                    vc: {
-                        '@context': STUDENT_CREDENTIAL_SCHEMA['@context'],
-                        type: ['VerifiableCredential', 'StudentCredential'],
-                        credentialSubject: {
-                            id: student.did,
-                            studentId: student.id,
-                            name: student.name,
-                            email: student.email,
-                            roll: student.rollNumber
-                        }
-                    }
-                };
+        try {
+            const vcPayload: any = {
+                "@context": ["https://www.w3.org/2018/credentials/v1"],
+                "type": ["VerifiableCredential", "StudentCredential"],
+                "issuer": DIDGenerator.generateDID(this.issuerWallet.address),
+                "issuanceDate": issuanceDate.toISOString(),
+                "expirationDate": expirationDate.toISOString(),
+                "credentialSubject": {
+                    "id": student.did,
+                    "studentId": student.id,
+                    "name": student.name,
+                    "email": student.email,
+                    "rollNumber": student.rollNumber
+                }
+            };
 
-                const signature = await Signer.signObject(vcPayload, this.issuerWallet);
-                vcPayload.sig = signature;
+            const signature = await Signer.signObject(vcPayload, this.issuerWallet);
+            vcPayload.sig = signature;
 
-                const credential = this.credentialsRepository.create({
-                    type: ['StudentCredential'],
-                    issuanceDate,
-                    expirationDate,
-                    signature,
-                    payload: vcPayload,
-                    student
-                });
+            const credential = this.credentialsRepository.create({
+                type: ['StudentCredential'],
+                issuanceDate,
+                expirationDate,
+                signature,
+                payload: vcPayload,
+                student
+            });
 
-                credentialsToSave.push(credential);
-                student.status = StudentStatus.ACTIVE;
-                studentsToUpdate.push(student);
-                results.success++;
-            } catch (err) {
-                this.logger.error(`Failed to issue for student ${student.id}: ${err.message}`);
-                results.failed++;
+            credentialsToSave.push(credential);
+            student.status = StudentStatus.ACTIVE;
+            studentsToUpdate.push(student);
+            results.success++;
+        } catch (err) {
+            this.logger.error(`Failed to issue for student ${student.id}: ${err.message}`);
+            results.failed++;
             }
         }
 

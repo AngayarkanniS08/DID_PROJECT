@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { Admin } from '../entities/admin.entity';
 import { Organization } from '../entities/organization.entity';
 
+
 @Injectable()
 export class AuthService {
     constructor(
@@ -28,32 +29,37 @@ export class AuthService {
         if (!isPasswordMatching) {
             throw new UnauthorizedException('Invalid credentials');
         }
-
         // Check if any organization has completed setup
         const org = await this.organizationRepository.findOne({ where: { isSetupComplete: true } });
 
+        // Generate JWT payload
         const payload = { sub: admin.id, email: admin.email };
+
+        // Sign JWT
+        const accessToken = await this.jwtService.signAsync(payload);
+
         return {
-            access_token: await this.jwtService.signAsync(payload),
+            access_token: accessToken,
             isSetupComplete: !!org,
         };
     }
 
+
     // 🚨 TEMPORARY: Delete this after first admin is created!
     async seedInitialAdmin() {
-        const existingAdmin = await this.adminRepository.find();
-        if (existingAdmin.length > 0) {
-            return { message: 'Admin already exists!' };
-        }
-
-        const hashedPassword = await bcrypt.hash('admin123', 10);
-
-        const newAdmin = this.adminRepository.create({
-            email: 'admin@secureverify.com',
-            passwordHash: hashedPassword,
-        });
-
-        await this.adminRepository.save(newAdmin);
-        return { message: 'Super Admin created!', email: newAdmin.email };
+    const existingAdmin = await this.adminRepository.find();
+    if (existingAdmin.length > 0) {
+        return { message: 'Admin already exists!' };
     }
+
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+
+    const newAdmin = this.adminRepository.create({
+        email: 'admin@secureverify.com',
+        passwordHash: hashedPassword,
+    });
+
+    await this.adminRepository.save(newAdmin);
+    return { message: 'Super Admin created!', email: newAdmin.email };
+}
 }

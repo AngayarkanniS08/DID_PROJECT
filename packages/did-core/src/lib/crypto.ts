@@ -27,19 +27,28 @@ export class Signer {
 
     /**
      * Canonical JSON Stringify (Ensures consistent key ordering)
+     * Handles nested objects and arrays recursively
      */
     static canonicalStringify(obj: any): string {
-        if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) {
-            return JSON.stringify(obj);
-        }
+        const getSortedObject = (input: any): any => {
+            if (input === null || typeof input !== 'object') {
+                return input;
+            }
 
-        // Sort keys alphabetically to ensure the same hash every time
-        const sortedObj = Object.keys(obj).sort().reduce((result: any, key: string) => {
-            result[key] = this.canonicalStringify(obj[key]);
+            if (Array.isArray(input)) {
+                return input.map(getSortedObject);
+            }
+
+            const sortedKeys = Object.keys(input).sort();
+            const result: any = {};
+            for (const key of sortedKeys) {
+                result[key] = getSortedObject(input[key]);
+            }
             return result;
-        }, {});
+        };
 
-        return JSON.stringify(sortedObj);
+        const sorted = getSortedObject(obj);
+        return JSON.stringify(sorted);
     }
 
     /**

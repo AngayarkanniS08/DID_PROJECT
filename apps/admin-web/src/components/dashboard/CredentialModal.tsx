@@ -35,32 +35,8 @@ export const CredentialPreviewModal: React.FC<CredentialPreviewModalProps> = ({ 
         const credential = student.credentials[0];
         const fileName = `credential-${student.rollNumber}.json`;
 
-        // Reconstruct the VC for download
-        const vc = {
-            "@context": [
-                "https://www.w3.org/2018/credentials/v1"
-            ],
-            "type": ["VerifiableCredential", "StudentCredential"],
-            "issuer": credential.issuerDid || "did:polygon:0xIssuer",
-            "issuanceDate": credential.issuanceDate,
-            "expirationDate": credential.expirationDate,
-            "credentialSubject": {
-                "id": student.did,
-                "name": student.name,
-                "rollNumber": student.rollNumber,
-                "email": student.email,
-                "department": student.department
-            },
-            "proof": {
-                "type": "EthereumEip712Signature2021",
-                "proofPurpose": "assertionMethod",
-                "verificationMethod": "did:polygon:0xIssuer#controller",
-                "created": credential.issuanceDate,
-                "jws": credential.signature
-            }
-        };
-
-        const json = JSON.stringify(vc, null, 2);
+        // IMPORTANT: We use the EXACT payload from the backend to ensure signature validity
+        const json = JSON.stringify(credential.payload, null, 2);
         const blob = new Blob([json], { type: "application/json" });
         const href = URL.createObjectURL(blob);
         const link = document.createElement("a");

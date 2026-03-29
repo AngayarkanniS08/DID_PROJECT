@@ -15,6 +15,8 @@ import { StatCard, MiniCard } from "../../components/dashboard/Stats";
 import { ActivityTable } from "../../components/dashboard/ActivityTable";
 import { QuickActions } from "../../components/dashboard/QuickActions";
 import { CredentialPreviewModal } from "../../components/dashboard/CredentialModal";
+import { IssueIdentityModal } from "../../components/dashboard/IssueIdentityModal";
+import { VerifyCredentialModal } from "../../components/dashboard/VerifyCredentialModal";
 import { DepartmentSplit } from "../../components/dashboard/Charts";
 import { SystemLogs } from "../../components/dashboard/Logs";
 import { Icon } from "../../components/dashboard/DashboardIcons";
@@ -31,6 +33,8 @@ export function Dashboard() {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isIssuing, setIsIssuing] = useState(false);
     const [previewStudentId, setPreviewStudentId] = useState<string | null>(null);
+    const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+    const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
 
     /* ── Data Fetching ── */
     const loadDashboardData = async () => {
@@ -68,6 +72,20 @@ export function Dashboard() {
 
     /* ── Metrics Logic ── */
     const totalStudentsCount = students.length || 0;
+    
+    /* ── SEARCH FILTER LOGIC ── */
+    const filteredStudents = students.filter(s => {
+        if (!searchValue) return true;
+        const search = searchValue.toLowerCase();
+        return (
+            s.name?.toLowerCase().includes(search) ||
+            s.rollNumber?.toLowerCase().includes(search) ||
+            s.department?.toLowerCase().includes(search) ||
+            s.status?.toLowerCase().includes(search)
+        );
+    });
+
+    const displayStudents = activeNav === "users" ? filteredStudents : students.slice(0, 5);
 
     // Map stats dynamically
     const statsData = [
@@ -115,7 +133,7 @@ export function Dashboard() {
 
     // Prepare Activity Table Data (Show latest 5)
     // Map backend keys (rollNumber) to frontend keys (rollNo) for ActivityTable compatibility
-    const activityData = students.slice(0, 5).map(s => ({
+    const activityData = displayStudents.map(s => ({
         ...s,
         rollNo: s.rollNumber,
         status: s.status || "UNISSUED", // Use real backend status
@@ -165,9 +183,9 @@ export function Dashboard() {
 
                             <div className="right-col">
                                 <QuickActions
-                                    onIssue={() => console.log("Issue New ID")}
+                                    onIssue={() => setIsIssueModalOpen(true)}
                                     onImport={loadDashboardData} // Automatically refresh on success
-                                    onVerify={() => console.log("Verify Credential")}
+                                    onVerify={() => setIsVerifyModalOpen(true)}
                                 />
                                 <DepartmentSplit departments={deptData} totalIds={totalStudentsCount.toString()} />
                             </div>
@@ -177,9 +195,9 @@ export function Dashboard() {
                             <MiniCard
                                 title="Verification Rate"
                                 value="100%"
-                                valueColor="em-light"
+                                valueColor="primary"
                                 sub="Systems optimal"
-                                TitleIcon={Icon.Check}
+                                TitleIcon={Icon.CheckOrange}
                             >
                                 <div className="mini-progress-track">
                                     <div className="mini-progress-fill" style={{ width: "100%" }} />
@@ -188,21 +206,21 @@ export function Dashboard() {
                             <MiniCard
                                 title="Avg. Issuance Time"
                                 value="0.8s"
-                                valueColor="amber"
+                                valueColor="primary"
                                 sub="Real-time indexing"
-                                TitleIcon={Icon.ClockAmber}
+                                TitleIcon={Icon.ClockOrange}
                             >
                                 <div className="mini-bar-chart">
                                     {amberBars.map((bar, i) => (
                                         <div
                                             key={i}
                                             className="mini-bar"
-                                            style={{ height: bar.h, background: `rgba(245,158,11,${bar.op})` }}
+                                            style={{ height: bar.h, background: `hsl(var(--primary)/${bar.op})` }}
                                         />
                                     ))}
                                 </div>
                             </MiniCard>
-                            <MiniCard title="Latest Students" value={null} TitleIcon={Icon.LockBlue}>
+                            <MiniCard title="Latest Students" value={null} TitleIcon={Icon.ShieldOrange}>
                                 <SystemLogs logs={logsData} />
                             </MiniCard>
                         </div>
@@ -213,7 +231,7 @@ export function Dashboard() {
                             <div className="card-header">
                                 <div className="card-title">
                                     <Icon.Users />
-                                    User Directory ({students.length} Total)
+                                    User Directory ({filteredStudents.length} {searchValue ? 'Found' : 'Total'})
                                 </div>
                                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                     {selectedIds.length > 0 && (
@@ -231,7 +249,7 @@ export function Dashboard() {
                             </div>
                             <div className="table-wrap">
                                 <ActivityTable
-                                    rows={students.map(s => ({ ...s, rollNo: s.rollNumber, status: s.status || "UNISSUED", time: "Imported" }))}
+                                    rows={filteredStudents.map(s => ({ ...s, rollNo: s.rollNumber, status: s.status || "UNISSUED", time: "Imported" }))}
                                     selectable={true}
                                     selectedIds={selectedIds}
                                     onSelectionChange={setSelectedIds}
@@ -251,6 +269,19 @@ export function Dashboard() {
                     </div>
                 )}
             </div>
+            {isIssueModalOpen && (
+                <IssueIdentityModal
+                    onClose={() => setIsIssueModalOpen(false)}
+                    onSuccess={() => loadDashboardData()}
+                />
+            )}
+
+
+            {isVerifyModalOpen && (
+                <VerifyCredentialModal
+                    onClose={() => setIsVerifyModalOpen(false)}
+                />
+            )}
 
             {previewStudentId && (
                 <CredentialPreviewModal
@@ -258,6 +289,7 @@ export function Dashboard() {
                     onClose={() => setPreviewStudentId(null)}
                 />
             )}
+
         </div>
     );
 }

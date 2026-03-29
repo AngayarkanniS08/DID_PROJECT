@@ -3,23 +3,29 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "eas-build-post-install": "cd ../ && node tools/scripts/eas-build-post-install.mjs . mobile-verifier"
+    "eas-build-post-install": "cd ../ && node tools/scripts/eas-build-post-install.mjs . mobile-verifier",
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
   },
   "dependencies": {
-    "@expo/metro-config": "*",
-    "@testing-library/react-native": "*",
-    "expo": "*",
-    "expo-splash-screen": "*",
-    "expo-status-bar": "*",
-    "expo-system-ui": "*",
-    "jest-expo": "*",
-    "metro-config": "*",
-    "metro-resolver": "*",
-    "react": "*",
-    "react-native": "*",
+    "@expo/metro-config": "~0.18.11",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "expo": "~52.0.0",
+    "expo-haptics": "~14.0.0",
+    "expo-splash-screen": "~0.29.0",
+    "expo-status-bar": "~2.0.0",
+    "expo-system-ui": "~4.0.0",
+    "jest-expo": "~52.0.0",
+    "react": "18.3.1",
+    "react-native": "0.76.5",
     "react-native-svg": "*",
     "react-native-svg-transformer": "*",
-    "react-native-web": "*"
+    "react-native-web": "~0.19.13",
+    "react-native-safe-area-context": "^5.0.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  }
 }

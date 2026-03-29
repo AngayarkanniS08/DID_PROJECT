@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { Admin } from '../entities/admin.entity';
 import { Organization } from '../entities/organization.entity';
 
+
 @Module({
     imports: [
         TypeOrmModule.forFeature([Admin, Organization]),

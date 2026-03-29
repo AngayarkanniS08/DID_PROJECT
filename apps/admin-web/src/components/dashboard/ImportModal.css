@@ -14,14 +14,15 @@
 }
 
 .import-modal-card {
-    background: var(--bg-card);
+    background: hsl(0 0% 8%);
     width: 100%;
     max-width: 440px;
-    border: 1px solid var(--border);
+    border: 2px solid hsl(var(--primary));
     border-radius: 24px;
     padding: 32px;
-    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5),
-        0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.7),
+        0 0 0 1px hsl(var(--primary) / 0.1),
+        0 0 20px hsl(var(--primary) / 0.1);
     animation: modalScale .4s cubic-bezier(.22, 1, .36, 1);
     position: relative;
     overflow: hidden;
@@ -33,16 +34,16 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--em), transparent);
+    height: 3px;
+    background: hsl(var(--primary));
 }
 
 .import-modal-card h2 {
     font-family: var(--font-display);
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     margin-bottom: 8px;
-    color: var(--text);
+    color: #fff;
 }
 
 .import-modal-card p {
@@ -54,22 +55,23 @@
 
 .import-modal-card input[type="file"] {
     width: 100%;
-    background: var(--bg-input);
-    border: 1px dashed var(--border);
-    border-radius: 12px;
-    padding: 24px;
+    background: hsl(0 0% 12%);
+    border: 2px dashed hsl(var(--primary) / 0.3);
+    border-radius: 16px;
+    padding: 40px 24px;
     font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--text-muted);
+    font-size: 13px;
+    color: hsl(var(--muted-foreground));
     cursor: pointer;
-    transition: border-color .2s, background .2s;
+    transition: all .3s ease;
     margin-bottom: 24px;
     outline: none;
+    text-align: center;
 }
 
 .import-modal-card input[type="file"]:hover {
-    border-color: var(--em-light);
-    background: rgba(16, 185, 129, 0.04);
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.04);
 }
 
 .modal-actions {
@@ -104,10 +106,10 @@
 }
 
 .modal-actions button.em-bg {
-    background: var(--em);
-    border: 1px solid var(--em-light);
-    color: #051510;
-    box-shadow: 0 2px 6px var(--em-glow);
+    background: hsl(var(--primary));
+    border: none;
+    color: #fff;
+    box-shadow: 0 4px 12px hsl(var(--primary) / 0.3);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -123,9 +125,9 @@
 }
 
 .modal-actions button.em-bg:hover:not(:disabled) {
-    background: var(--em-light);
-    transform: translateY(-1px);
-    box-shadow: 0 8px 20px var(--em-glow);
+    background: hsl(var(--primary));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px hsl(var(--primary) / 0.5);
 }
 
 .modal-actions button:disabled {
@@ -138,15 +140,15 @@
 .success-icon {
     width: 56px;
     height: 56px;
-    background: var(--em);
-    color: #051510;
+    background: hsl(var(--primary));
+    color: #fff;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 28px;
     margin: 0 auto 20px;
-    box-shadow: 0 0 20px var(--em-glow);
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
 }
 
 .result-stats {

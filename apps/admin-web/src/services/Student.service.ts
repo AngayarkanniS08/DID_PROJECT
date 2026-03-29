@@ -1,13 +1,10 @@
 // src/services/student.service.ts
-import axios from 'axios';
-
-// Note: Replace with your actual backend URL or use an Axios instance
-const API_URL = 'http://192.168.1.6:3000/api';
+import { api } from './api';
 
 export const studentService = {
     bulkImport: async (organizationId: string, students: any[]) => {
         try {
-            const response = await axios.post(`${API_URL}/students/upload`, {
+            const response = await api.post(`/students/upload`, {
                 organizationId,
                 students,
             });
@@ -19,7 +16,7 @@ export const studentService = {
     },
     getAllStudents: async () => {
         try {
-            const response = await axios.get(`${API_URL}/students`);
+            const response = await api.get(`/students`);
             return response.data;
         } catch (error) {
             console.error('Fetch Students Error:', error);
@@ -28,7 +25,7 @@ export const studentService = {
     },
     getStudentById: async (id: string) => {
         try {
-            const response = await axios.get(`${API_URL}/students/${id}`);
+            const response = await api.get(`/students/${id}`);
             return response.data;
         } catch (error) {
             console.error('Fetch Student Error:', error);
@@ -37,7 +34,7 @@ export const studentService = {
     },
     batchIssue: async (ids: string[]) => {
         try {
-            const response = await axios.post(`${API_URL}/students/batch-issue`, { ids });
+            const response = await api.post(`/students/batch-issue`, { ids });
             return response.data;
         } catch (error) {
             console.error('Batch Issue Error:', error);
@@ -46,11 +43,29 @@ export const studentService = {
     },
     getIssuerConfig: async () => {
         try {
-            const response = await axios.get(`${API_URL}/students/config/issuer`);
+            const response = await api.get(`/students/config/issuer`);
             return response.data;
         } catch (error) {
             console.error('Get Issuer Config Error:', error);
             throw error;
         }
-    }
+    },
+    createStudent: async (studentData: any) => {
+        try {
+            const response = await api.post(`/students`, studentData);
+            return response.data;
+        } catch (error) {
+            console.error('Create Student Error:', error);
+            throw error;
+        }
+    },
+    verifyCredential: async (payload: any) => {
+        try {
+            const response = await api.post(`/students/verify`, payload);
+            return response.data;
+        } catch (error) {
+            console.error('Verification Error:', error);
+            throw error;
+        }
+    },
 };

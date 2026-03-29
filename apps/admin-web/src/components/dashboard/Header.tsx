@@ -14,7 +14,7 @@ export function Header({ searchValue, onSearchChange }: HeaderProps) {
                 <p>
                     Here is what is happening today.{" "}
                     <span className="live-dot" />
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--em-light)" }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "hsl(var(--primary-foreground))" }}>
                         Live
                     </span>
                 </p>

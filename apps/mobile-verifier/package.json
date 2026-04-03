@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "eas-build-post-install": "cd ../ && node tools/scripts/eas-build-post-install.mjs . mobile-verifier",
+    "eas-build-post-install": "cd ../../ && node tools/scripts/eas-build-post-install.mjs . mobile-verifier",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",

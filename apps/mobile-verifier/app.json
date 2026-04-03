@@ -12,14 +12,10 @@
       "bundleIdentifier": "com.anonymous.mobileverifier"
     },
     "android": {
-      "minSdkVersion": 24,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-        "buildProperties": {
-          "kotlinVersion": "2.0.21"
-         },
       "package": "com.anonymous.mobileverifier"
     },
     "web": {

@@ -17,6 +17,11 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+         "gradleProperties": {
+         "android.prefabVersion": "2.0.0",
+         "newArchEnabled": "false",
+         "kotlinVersion": "2.0.21"
+         }
       "package": "com.anonymous.mobileverifier"
     },
     "web": {

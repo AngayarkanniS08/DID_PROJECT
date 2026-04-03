@@ -1,12 +1,13 @@
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
 # compiled output
-dist
-tmp
-out-tsc
+/dist
+/tmp
+/out-tsc
+/out
 
 # dependencies
-node_modules
+/node_modules
 
 # IDEs and editors
 /.idea
@@ -18,7 +19,7 @@ node_modules
 *.sublime-workspace
 
 # IDE - VSCode
-.vscode/*
+/.vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
@@ -38,15 +39,13 @@ testem.log
 .DS_Store
 Thumbs.db
 
-.nx/cache
-.nx/workspace-data
+# Nx
+/.nx/cache
+/.nx/workspace-data
 
 # Expo
-node_modules/
 .expo/
 .yarn/
-dist/
-npm-debug.*
 *.jks
 *.p8
 *.p12
@@ -56,3 +55,18 @@ npm-debug.*
 web-build/
 cache/
 vite.config.*.timestamp*
+
+# Logs
+*.log
+error.log
+out.log
+
+# Env files
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+
+# Build artifacts
+*.tsbuildinfo

@@ -16,6 +16,7 @@
     "baseUrl": ".",
     "paths": {
       "@secure-verify/did-core": ["packages/did-core/src/index.ts"],
+      "@secure-verify/did-core/merkle": ["packages/did-core/src/lib/merkle.ts"],
       "@secure-verify/ui-kit": ["packages/ui-kit/src/index.ts"]
     }
   },

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -11,10 +12,12 @@ import { Admin } from './entities/admin.entity';
 import { AuthModule } from './auth/auth.module';
 import { StudentsModule } from './students/students.module';
 import { SetupModule } from './setup/setup.module';
+import { MerkleModule } from './merkle/merkle.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
@@ -29,6 +32,7 @@ import { SetupModule } from './setup/setup.module';
     AuthModule,
     StudentsModule,
     SetupModule,
+    MerkleModule,
   ],
   controllers: [AppController],
   providers: [AppService],

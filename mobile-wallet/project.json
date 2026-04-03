@@ -1,9 +1,0 @@
-{
-  "name": "mobile-wallet",
-  "$schema": "../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "mobile-wallet/src",
-  "projectType": "application",
-  "tags": [],
-  "// targets": "to see all targets run: nx show project mobile-wallet --web",
-  "targets": {}
-}

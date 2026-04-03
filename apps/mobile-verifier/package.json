@@ -1,0 +1,43 @@
+{
+  "name": "mobile-verifier",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "eas-build-post-install": "cd ../ && node tools/scripts/eas-build-post-install.mjs . mobile-verifier",
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@expo/metro-config": "~0.19.0",
+    "@react-native-async-storage/async-storage": "~2.1.0",
+    "@secure-verify/did-core": "file:../../dist/packages/did-core",
+    "ethers": "*",
+    "expo": "~54.0.0",
+    "expo-build-properties": "~1.0.10",
+    "expo-camera": "~16.0.0",
+    "expo-dev-client": "~6.0.20",
+    "expo-haptics": "~14.0.1",
+    "expo-splash-screen": "~0.29.0",
+    "expo-status-bar": "~2.2.0",
+    "expo-system-ui": "~4.0.8",
+    "jest-expo": "~54.0.0",
+    "keccak256": "*",
+    "merkletreejs": "*",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-native": "0.76.9",
+    "react-native-gesture-handler": "*",
+    "react-native-get-random-values": "1.11.0",
+    "react-native-safe-area-context": "*",
+    "react-native-screens": "*",
+    "react-native-svg": "~15.12.1",
+    "react-native-svg-transformer": "~1.5.1",
+    "react-native-web": "~0.20.0",
+    "tslib": "^2.8.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  }
+}

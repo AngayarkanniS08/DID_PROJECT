@@ -15,7 +15,7 @@
     "@secure-verify/did-core": "file:../../dist/packages/did-core",
     "ethers": "*",
     "expo": "~54.0.0",
-    "expo-build-properties": "~1.0.10",
+    "expo-build-properties": "^55.0.11",
     "expo-camera": "~16.0.0",
     "expo-dev-client": "~6.0.20",
     "expo-haptics": "~14.0.1",

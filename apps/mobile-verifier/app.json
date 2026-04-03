@@ -36,7 +36,15 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-build-properties"
+    [
+      "expo-build-properties",
+      {
+         "android" : {
+            "kotlineVersion": "2.0.21",
+            "newArchEnabled": false
+      }
+  }
+]
     ],
     "updates": {
       "enabled": false,

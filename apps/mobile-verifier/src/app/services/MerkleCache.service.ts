@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ExpoConstants from 'expo-constants';
 
 // ─── Keccak256 for React Native ────────────────────────────
 // We use ethers.js (already installed) instead of the Node.js keccak256 package
@@ -15,8 +16,8 @@ const KEYS = {
 };
 
 // ─── Config ────────────────────────────────────────────────
-// Update this to your NestJS API URL
-const API_URL = 'http://192.168.1.5:3000'; // dev: local IP
+const API_URL =
+  ExpoConstants.default?.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
 const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // ─── Types ─────────────────────────────────────────────────
@@ -91,7 +92,9 @@ class MerkleCacheService {
         [KEYS.LEAF_COUNT, String(payload.leafCount)],
       ]);
 
-      console.log(`[MerkleCache] Synced root: ${payload.root.slice(0, 10)}... (${payload.leafCount} students)`);
+      console.log(
+        `[MerkleCache] Synced root: ${payload.root.slice(0, 10)}... (${payload.leafCount} students)`,
+      );
       return true;
     } catch (err) {
       console.warn('[MerkleCache] Sync failed (offline?):', err);
@@ -165,23 +168,28 @@ class MerkleCacheService {
       KEYS.ROOT,
       KEYS.LAST_SYNC,
       KEYS.LEAF_COUNT,
-    ]).then(pairs => pairs.map(p => p[1]));
+    ]).then((pairs) => pairs.map((p) => p[1]));
 
     const hasCache = !!root && root !== '0x';
     const leafCount = parseInt(leafCountStr || '0', 10);
 
     if (!lastSyncStr) {
-      return { hasCache: false, syncedAgo: 'Never synced', isStale: true, leafCount: 0 };
+      return {
+        hasCache: false,
+        syncedAgo: 'Never synced',
+        isStale: true,
+        leafCount: 0,
+      };
     }
 
     const ageMs = Date.now() - parseInt(lastSyncStr, 10);
     const ageMin = Math.floor(ageMs / 60000);
-    const ageHr  = Math.floor(ageMs / 3600000);
+    const ageHr = Math.floor(ageMs / 3600000);
 
     let syncedAgo: string;
-    if (ageMin < 1)      syncedAgo = 'Just now';
+    if (ageMin < 1) syncedAgo = 'Just now';
     else if (ageMin < 60) syncedAgo = `${ageMin}m ago`;
-    else                  syncedAgo = `${ageHr}h ago`;
+    else syncedAgo = `${ageHr}h ago`;
 
     return {
       hasCache,

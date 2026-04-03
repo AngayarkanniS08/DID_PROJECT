@@ -33,15 +33,15 @@
         }
       ],
       [
-         "expo-build-properties",
-       {
-         "android" : {
+        "expo-build-properties",
+        {
+          "android": {
             "kotlinVersion": "2.0.21",
             "newArchEnabled": false
-       }
-    }
-  ]
-],
+          }
+        }
+      ]
+    ],
     "updates": {
       "enabled": false,
       "checkAutomatically": "NEVER",
@@ -50,7 +50,8 @@
     "extra": {
       "eas": {
         "projectId": "dc7ef6ab-79ff-421a-9e3e-5fc6d4699379"
-      }
+      },
+      "apiUrl": "http://192.168.1.5:3001"
     }
   }
 }

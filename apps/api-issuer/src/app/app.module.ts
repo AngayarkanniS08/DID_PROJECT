@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { StudentsModule } from './students/students.module';
 import { SetupModule } from './setup/setup.module';
 import { MerkleModule } from './merkle/merkle.module';
+import { MailerModule } from './mailer/mailer.module';
 
 @Module({
   imports: [
@@ -33,9 +34,9 @@ import { MerkleModule } from './merkle/merkle.module';
     StudentsModule,
     SetupModule,
     MerkleModule,
+    MailerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {
-}
+export class AppModule {}

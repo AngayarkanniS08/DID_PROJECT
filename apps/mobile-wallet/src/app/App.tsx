@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/accessible-emoji */
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   StyleSheet,
   ScrollView,
@@ -8,24 +8,125 @@ import {
   StatusBar,
   TouchableOpacity,
   Linking,
+  Alert,
 } from 'react-native';
 import Svg, { G, Path } from 'react-native-svg';
+
+interface CredentialData {
+  did?: string;
+  name?: string;
+  roll?: string;
+  payload?: string;
+  iss?: string;
+}
 
 export const App = () => {
   const [whatsNextYCoord, setWhatsNextYCoord] = useState<number>(0);
   const scrollViewRef = useRef<null | ScrollView>(null);
+  const [credential, setCredential] = useState<CredentialData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      const url = event.url;
+      console.log('Deep link received:', url);
+      parseDeepLink(url);
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        parseDeepLink(url);
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  const parseDeepLink = (url: string) => {
+    try {
+      const urlObj = new URL(url);
+      const params: Record<string, string> = {};
+      urlObj.searchParams.forEach((value, key) => {
+        params[key] = value;
+      });
+
+      console.log('Parsed deep link:', params);
+
+      if (params.did || params.payload) {
+        let credentialData: CredentialData = {
+          did: params.did,
+          name: params.name,
+          roll: params.roll,
+          iss: params.iss,
+        };
+
+        if (params.payload) {
+          try {
+            const decodedPayload = JSON.parse(
+              decodeURIComponent(params.payload),
+            );
+            credentialData = { ...credentialData, ...decodedPayload };
+          } catch (e) {
+            credentialData.payload = params.payload;
+          }
+        }
+
+        setCredential(credentialData);
+      }
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error parsing deep link:', error);
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        <View style={[styles.section, styles.centerContent]}>
+          <Text style={styles.textLg}>Loading...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (credential) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" style={styles.scrollView}>
+          <View style={styles.section}>
+            <View style={styles.credentialCard}>
+              <View style={styles.cardHeader}>
+                <Svg width={32} height={32} stroke="#10b981" fill="none" viewBox="0 0 24 24">
+                  <Path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                </Svg>
+                <Text style={styles.cardTitle}>Student Credential</Text>
+              </View>
+              <View style={styles.cardBody}>
+                <Text style={styles.credentialName}>{credential.name || 'Unknown'}</Text>
+                <Text style={styles.credentialText}>Roll: {credential.roll || 'N/A'}</Text>
+                <Text style={styles.credentialText}>DID: {credential.did?.substring(0, 20)}...</Text>
+                <Text style={styles.credentialStatus}>Status: Active</Text>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <ScrollView
-        ref={(ref) => {
-          scrollViewRef.current = ref;
-        }}
-        contentInsetAdjustmentBehavior="automatic"
-        style={styles.scrollView}
-      >
-        <View style={styles.section}>
+      <View style={styles.section}>
           <Text style={styles.textLg}>Hello there,</Text>
           <Text
             style={[styles.textXL, styles.appTitleText]}
@@ -712,6 +813,50 @@ const styles = StyleSheet.create({
   love: {
     marginTop: 12,
     justifyContent: 'center',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  credentialCard: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    shadowColor: 'black',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 1, height: 4 },
+    shadowRadius: 12,
+    padding: 24,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 12,
+    color: '#10b981',
+  },
+  cardBody: {
+    alignItems: 'center',
+  },
+  credentialName: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  credentialText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  credentialStatus: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#10b981',
+    marginTop: 12,
   },
 });
 

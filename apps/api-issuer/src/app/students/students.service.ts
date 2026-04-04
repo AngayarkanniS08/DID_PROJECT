@@ -15,6 +15,7 @@ import { Wallet, HDNodeWallet } from 'ethers';
 import * as crypto from 'crypto';
 import { MailerService } from '../mailer/mailer.service';
 import { ConfigService } from '@nestjs/config';
+import * as otpauth from 'otpauth';
 
 @Injectable()
 export class StudentsService {
@@ -213,8 +214,9 @@ export class StudentsService {
           continue;
         }
 
-        // Step 4: THE KILL-SHOT (Generate Crypto Secret)
-        const uniqueTotpSecret = crypto.randomBytes(20).toString('hex');
+        // Step 4: THE KILL-SHOT (Generate Crypto Secret - Base32)
+        const secretObj = new otpauth.Secret({ size: 20 });
+        const uniqueTotpSecret = secretObj.base32;
 
         // Generate DID for the student
         const studentWallet = KeyManager.generateWallet();

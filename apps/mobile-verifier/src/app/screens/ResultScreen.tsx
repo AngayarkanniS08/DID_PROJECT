@@ -46,82 +46,98 @@ export const ResultScreen = ({ route, navigation }: any) => {
 
   const performVerification = async (data: string) => {
     try {
-      const credential = JSON.parse(data);
+      let credential: any;
+      let isLiveProof = false;
+      let proofError = '';
 
-      // 1. Expiry check
+      // 1. Parse Data (Handle both raw string VC and Live Proof Object)
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed.vc && parsed.t && parsed.s) {
+          credential = parsed.vc;
+          isLiveProof = true;
+          
+          // Verify Holder's Proof of Possession (Replay Protection)
+          const holderAddress = DIDGenerator.extractAddress(credential.sub || credential.id);
+          const now = Math.floor(Date.now() / 1000);
+          const timeDiff = Math.abs(now - parsed.t);
+          
+          if (timeDiff > 120) { // 2 minute window
+            proofError = 'Live Proof expired (Timestamp out of sync)';
+          } else {
+            const isHolderValid = Verifier.isValidSignature(parsed.t.toString(), parsed.s, holderAddress);
+            if (!isHolderValid) {
+              proofError = 'Holder Binding Failed (Private key mismatch)';
+            }
+          }
+        } else {
+          credential = parsed;
+        }
+      } catch (e) {
+        throw new Error('Malformed QR Data');
+      }
+
+      // 2. Expiry check (Issuer's claim)
       if (credential.expirationDate) {
         const expiry = new Date(credential.expirationDate);
         if (expiry < new Date()) {
           setResultState('expired');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          setStudentInfo(credential.credentialSubject || null);
+          setStudentInfo(credential.credentialSubject || credential);
           setAutoResetActive(true);
-          await historyService.saveScan({
-            name: credential.credentialSubject?.name || 'Unknown',
-            rollNumber: credential.credentialSubject?.rollNumber || 'N/A',
-            status: 'failed',
-            recoveredAddress: '',
-            issuerAddress: '',
-          });
           return;
         }
       }
 
-      // 2. Signature check
+      // 3. Signature check (Issuer's Proof)
       const issuerDID = credential.issuer || credential.iss;
       if (!issuerDID) throw new Error('Invalid credential: No issuer DID found');
       const issuerAddress = DIDGenerator.extractAddress(issuerDID);
-      const result = Verifier.verifyIdentity(credential, issuerAddress);
+      const sigResult = Verifier.verifyIdentity(credential, issuerAddress);
 
-      // 3. Merkle proof check (offline enrollment verification)
-      if (credential.merkleProof && credential.credentialSubject?.id) {
-        const merkleResult = await merkleCacheService.verifyProof(
-          credential.credentialSubject.id,
-          credential.merkleProof,
-        );
+      // 4. Merkle proof check (Offline registry check)
+      const subjectId = credential.credentialSubject?.id || credential.id || credential.sub;
+      if (credential.merkleProof && subjectId) {
+        const merkleResult = await merkleCacheService.verifyProof(subjectId, credential.merkleProof);
 
         if (!merkleResult.hasCache) {
-          // No cache yet — warn but don't block (signature is still verified)
           setErrorMsg('No registry cache. Connect to sync.');
         } else if (!merkleResult.verified) {
-          // Student NOT in the enrolled registry — hard fail
           setResultState('fail');
-          setStudentInfo(credential.credentialSubject || null);
+          setStudentInfo(credential.credentialSubject || credential);
           setErrorMsg('Student not in enrolled registry (Merkle mismatch)');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          await historyService.saveScan({
-            name: credential.credentialSubject?.name || 'Unknown',
-            rollNumber: credential.credentialSubject?.rollNumber || 'N/A',
-            status: 'failed',
-            recoveredAddress: '',
-            issuerAddress,
-          });
           setAutoResetActive(true);
           return;
         } else if (merkleResult.isStale) {
-          // Cache is old — pass but show amber warning
           setMerkleStale(true);
         }
       }
 
-      const state: ResultState = result.isValid ? 'pass' : 'fail';
+      // Final determination
+      const isValid = sigResult.isValid && (!isLiveProof || !proofError);
+      const state: ResultState = isValid ? 'pass' : 'fail';
+      
       setResultState(state);
-      setStudentInfo(credential.credentialSubject || null);
-      setCryptoInfo({ recoveredAddress: result.recoveredAddress, issuerAddress });
-      setErrorMsg(result.error || '');
+      setStudentInfo(credential.credentialSubject || credential);
+      setCryptoInfo({ 
+        recoveredAddress: sigResult.recoveredAddress, 
+        issuerAddress,
+        isLive: isLiveProof && !proofError
+      });
+      setErrorMsg(proofError || sigResult.error || (!isLiveProof ? 'Static Scan (Replay possible)' : ''));
 
-      // Haptic
-      if (result.isValid) {
+      if (isValid) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
 
       await historyService.saveScan({
-        name: credential.credentialSubject?.name || 'Unknown',
-        rollNumber: credential.credentialSubject?.rollNumber || 'N/A',
-        status: result.isValid ? 'success' : 'failed',
-        recoveredAddress: result.recoveredAddress,
+        name: credential.credentialSubject?.name || credential.name || 'Unknown',
+        rollNumber: credential.credentialSubject?.rollNumber || credential.rollNumber || 'N/A',
+        status: isValid ? 'success' : 'failed',
+        recoveredAddress: sigResult.recoveredAddress,
         issuerAddress,
       });
 
@@ -129,7 +145,7 @@ export const ResultScreen = ({ route, navigation }: any) => {
 
     } catch (err: any) {
       setResultState('fail');
-      setErrorMsg(`Parse Error: ${err.message}`);
+      setErrorMsg(`Verification Error: ${err.message}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setAutoResetActive(true);
     }
@@ -220,9 +236,15 @@ export const ResultScreen = ({ route, navigation }: any) => {
         {showDetails && cryptoInfo && (
           <View style={styles.detailCard}>
             <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Liveness</Text>
+              <Text style={[styles.detailValue, { color: cryptoInfo.isLive ? '#22C55E' : '#F97316', fontWeight: 'bold' }]}>
+                {cryptoInfo.isLive ? 'Live Device' : 'Static Copy'}
+              </Text>
+            </View>
+            <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Integrity</Text>
               <Text style={styles.detailValue}>
-                {resultState === 'pass' ? 'Canonical Matched' : 'Signature Mismatch'}
+                {resultState === 'pass' ? 'Match' : 'Tampered'}
               </Text>
             </View>
             <View style={styles.detailRow}>

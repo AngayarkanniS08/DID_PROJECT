@@ -1,0 +1,408 @@
+=== index.ts ===
+export * from './lib/did-core';
+export * from './lib/types';
+export * from './lib/crypto';
+export * from './lib/did';
+export * from './lib/schemas';
+
+=== lib/crypto.ts ===
+import { Wallet, HDNodeWallet, verifyMessage, Signature, hashMessage } from 'ethers';
+
+
+export class KeyManager {
+    /**
+     * Generates a new random wallet (Private/Public Key Pair)
+     */
+    static generateWallet(): HDNodeWallet {
+        return Wallet.createRandom();
+    }
+
+    /**
+     * Creates a Wallet instance from a private key
+     */
+    static getWalletFromPrivateKey(privateKey: string): Wallet {
+        return new Wallet(privateKey);
+    }
+}
+
+export class Signer {
+    /**
+     * Signs a string payload with a private key
+     */
+    static async signMessage(message: string, wallet: Wallet | HDNodeWallet): Promise<string> {
+        return await wallet.signMessage(message);
+    }
+
+    /**
+     * Canonical JSON Stringify (Ensures consistent key ordering)
+     * Handles nested objects and arrays recursively
+     */
+    static canonicalStringify(obj: any): string {
+        const getSortedObject = (input: any): any => {
+            if (input === null || typeof input !== 'object') {
+                return input;
+            }
+
+            if (Array.isArray(input)) {
+                return input.map(getSortedObject);
+            }
+
+            const sortedKeys = Object.keys(input).sort();
+            const result: any = {};
+            for (const key of sortedKeys) {
+                result[key] = getSortedObject(input[key]);
+            }
+            return result;
+        };
+
+        const sorted = getSortedObject(obj);
+        return JSON.stringify(sorted);
+    }
+
+    /**
+     * Signs a JSON object deterministically
+     */
+    static async signObject(obj: any, wallet: Wallet | HDNodeWallet): Promise<string> {
+        const message = this.canonicalStringify(obj);
+        return await wallet.signMessage(message);
+    }
+}
+
+export class Verifier {
+    /**
+     * Verifies a signature and returns the recovered address
+     * ✅ CWE-327 FIXED: Low-S enforcement to prevent signature malleability
+     */
+    static verifyMessage(message: string, signature: string): string {
+        const sig = Signature.from(signature);
+
+        // SECP256K1 Curv Order N
+        const EC_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
+
+        // Check for High-S (Malleable) signatures
+        if (BigInt(sig.s) > EC_N / 2n) {
+            throw new Error("Invalid Signature: High-S malleability detected. Signature rejected for security.");
+        }
+
+        return verifyMessage(message, signature);
+    }
+
+    /**
+     * Verifies if a signature matches the expected signer address
+     */
+    static isValidSignature(message: string, signature: string, expectedAddress: string): boolean {
+        const recoveredAddress = this.verifyMessage(message, signature);
+        return recoveredAddress.toLowerCase() === expectedAddress.toLowerCase();
+    }
+
+    /**
+     * High-level helper to verify any identity JSON object.
+     * 1. Extracts the signature ('sig' or 'proof.jws')
+     * 2. Reconstructs the original signed data (everything else)
+     * 3. Recovers the signer's identity
+     */
+    static verifyIdentity(payload: any, expectedSignerAddress: string): {
+        isValid: boolean;
+        recoveredAddress: string;
+        error?: string;
+    } {
+        try {
+            if (!payload) return { isValid: false, recoveredAddress: '', error: "Empty payload" };
+
+            // 1. Find the signature (Support both simplified 'sig' and full VC 'proof.jws')
+            const signature = payload.sig || (payload.proof && payload.proof.jws);
+            if (!signature) {
+                return { isValid: false, recoveredAddress: '', error: "No cryptographic proof found" };
+            }
+
+            // 2. Reconstitute the signed content (use canonical stringification)
+            const { sig, proof, ...signedData } = payload;
+            const message = Signer.canonicalStringify(signedData);
+
+            // 3. Recover the public address of whoever signed this
+            const recoveredAddress = this.verifyMessage(message, signature);
+            const isValid = recoveredAddress.toLowerCase() === expectedSignerAddress.toLowerCase();
+
+            return {
+                isValid,
+                recoveredAddress,
+                error: isValid ? undefined : "Signature mismatch"
+            };
+        } catch (err: any) {
+            return { isValid: false, recoveredAddress: '', error: err.message };
+        }
+    }
+}
+
+=== lib/did-core.spec.ts ===
+import { KeyManager, Signer, Verifier } from './crypto';
+import { DIDGenerator } from './did';
+
+describe('did-core', () => {
+  it('should generate a valid wallet and sign a message', async () => {
+    const wallet = KeyManager.generateWallet();
+    expect(wallet.address).toBeDefined();
+    expect(wallet.privateKey).toBeDefined();
+
+    const message = 'Hello SecureVerify';
+    const signature = await Signer.signMessage(message, wallet);
+    expect(signature).toBeDefined();
+
+    const recoveredAddress = Verifier.verifyMessage(message, signature);
+    expect(recoveredAddress).toEqual(wallet.address);
+  });
+
+  it('should generate a correct DID from address', () => {
+    const address = '0x1234567890123456789012345678901234567890';
+    const did = DIDGenerator.generateDID(address);
+    expect(did).toEqual(`did:polygon:${address.toLowerCase()}`);
+  });
+
+  it('should extract address from DID', () => {
+    const address = '0x1234567890123456789012345678901234567890';
+    const did = `did:polygon:${address.toLowerCase()}`;
+    const extracted = DIDGenerator.extractAddress(did);
+    expect(extracted).toEqual(address.toLowerCase());
+  });
+});
+
+=== lib/did-core.ts ===
+export function didCore(): string {
+  return 'did-core';
+}
+
+=== lib/did.ts ===
+import { computeAddress } from 'ethers';
+
+export class DIDGenerator {
+    /**
+     * Generates a DID string from an Ethereum address
+     * Format: did:polygon:<address>
+     */
+    static generateDID(address: string): string {
+        return `did:polygon:${address.toLowerCase()}`;
+    }
+
+    /**
+     * Extracts the Ethereum address from a DID string
+     */
+    static extractAddress(did: string): string {
+        const parts = did.split(':');
+        if (parts.length < 3 || parts[0] !== 'did' || parts[1] !== 'polygon') {
+            throw new Error('Invalid DID format. Expected did:polygon:<address>');
+        }
+        return parts[2];
+    }
+
+    /**
+     * Computes address from public key and returns DID
+     */
+    static fromPublicKey(publicKey: string): string {
+        const address = computeAddress(publicKey);
+        return this.generateDID(address);
+    }
+}
+
+=== lib/merkle.ts ===
+import MerkleTree from 'merkletreejs';
+import keccak256 from 'keccak256';
+
+
+// ─── Types ─────────────────────────────────────────────────
+export interface MerkleProofResult {
+  proof: string[];
+  leaf: string;
+  leafIndex: number;
+}
+
+export interface MerkleVerifyInput {
+  did: string;
+  proof: string[];
+  root: string;
+}
+
+// ─── Helpers ───────────────────────────────────────────────
+
+/**
+ * Hash a DID string into a keccak256 leaf.
+ * Using Buffer for Node.js compatibility; ethers.keccak256 fallback for mobile.
+ */
+function hashDID(did: string): Buffer {
+  return keccak256(Buffer.from(did, 'utf8'));
+}
+
+function bufferToHex(buf: Buffer): string {
+  return '0x' + buf.toString('hex');
+}
+
+// ─── Tree Builder ──────────────────────────────────────────
+
+/**
+ * Build a Merkle Tree from an array of student DIDs.
+ * Leaves are sorted for determinism (same input → same root always).
+ */
+export function buildMerkleTree(dids: string[]): any {
+  if (dids.length === 0) throw new Error('Cannot build Merkle Tree with 0 DIDs');
+  const leaves = dids.map(hashDID);
+  return new MerkleTree(leaves, keccak256, { sortPairs: true });
+}
+
+// ─── Root ──────────────────────────────────────────────────
+
+/**
+ * Get the 32-byte Merkle Root as a 0x-prefixed hex string.
+ * This is what gets anchored to the Polygon smart contract.
+ */
+export function getMerkleRoot(tree: any): string {
+  return bufferToHex(tree.getRoot() as Buffer);
+}
+
+// ─── Proof ─────────────────────────────────────────────────
+
+/**
+ * Generate the Merkle Proof for a specific student DID.
+ * The proof is embedded in the student's QR code.
+ *
+ * @returns proof array (3-4 hex strings for 10k students) + leaf + index
+ */
+export function getMerkleProof(
+  tree: any,
+  dids: string[],
+  targetDID: string
+): MerkleProofResult {
+  const leafIndex = dids.indexOf(targetDID);
+  if (leafIndex === -1) throw new Error(`DID not found in registry: ${targetDID}`);
+
+  const leaf = hashDID(targetDID);
+  const proof = tree.getProof(leaf).map((p: { data: Buffer }) => bufferToHex(p.data));
+
+  return {
+    proof,
+    leaf: bufferToHex(leaf),
+    leafIndex,
+  };
+}
+
+// ─── Verify ────────────────────────────────────────────────
+
+/**
+ * Verify a student's Merkle proof against the cached root.
+ * This runs completely OFFLINE on the guard's phone.
+ *
+ * Algorithm:
+ *   1. Hash the student DID → leaf
+ *   2. Walk up the proof: hash(sortAndCombine(current, sibling))
+ *   3. Compare final hash to stored root
+ *
+ * @returns true if student is in the enrolled registry
+ */
+export function verifyMerkleProof(input: MerkleVerifyInput): boolean {
+  const { did, proof, root } = input;
+
+  if (!proof || proof.length === 0) return false;
+  if (!root || root === '0x') return false;
+
+  const leaf = hashDID(did);
+
+  // Reconstruct the path using sorted-pair hashing (must match tree options)
+  let computed: Buffer = leaf;
+  for (const proofHex of proof) {
+    const sibling = Buffer.from(proofHex.replace('0x', ''), 'hex');
+    // Sort pairs deterministically (same as tree's sortPairs: true option)
+    if (Buffer.compare(computed, sibling) < 0) {
+      computed = keccak256(Buffer.concat([computed, sibling]));
+    } else {
+      computed = keccak256(Buffer.concat([sibling, computed]));
+    }
+  }
+
+  return bufferToHex(computed) === root.toLowerCase();
+}
+
+// ─── Utility ───────────────────────────────────────────────
+
+/**
+ * Verify directly against a MerkleTree instance (for backend use).
+ * Uses merkletreejs built-in verification (faster, no manual walk needed).
+ */
+export function verifyWithTree(
+  tree: any,
+  did: string,
+  proof: string[]
+): boolean {
+  const leaf = hashDID(did);
+  const proofBuffers = proof.map(p => Buffer.from(p.replace('0x', ''), 'hex'));
+  return tree.verify(proofBuffers, leaf, tree.getRoot());
+}
+
+/**
+ * How many hashes are in a proof for N leaves.
+ * Useful for estimating QR code payload size.
+ * For 10,000 students → ceil(log2(10000)) = 14 hashes = 14 × 32 bytes = ~450 bytes
+ */
+export function proofDepth(leafCount: number): number {
+  return Math.ceil(Math.log2(leafCount));
+}
+
+=== lib/schemas.ts ===
+export const STUDENT_CREDENTIAL_SCHEMA = {
+    "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1"
+    ],
+    "type": "StudentCredential",
+    "credentialSubject": {
+        "id": "did:polygon:student",
+        "studentId": "string",
+        "name": "string",
+        "course": "string",
+        "batch": "string"
+    }
+};
+
+export const DEGREE_CREDENTIAL_SCHEMA = {
+    "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1"
+    ],
+    "type": "DegreeCredential",
+    "credentialSubject": {
+        "id": "did:polygon:student",
+        "degree": "string",
+        "major": "string",
+        "year": "string",
+        "grade": "string"
+    }
+};
+
+=== lib/types.ts ===
+export interface QRPayload {
+  did: string;
+  timestamp: number;
+  nonce: string;
+  context: string;
+  signature?: string;
+}
+
+export interface StudentCredential {
+  id: string;
+  type: string[];
+  issuer: string;
+  issuanceDate: string;
+  expirationDate: string;
+  credentialSubject: {
+    id: string; // The DID of the student
+    name: string;
+    studentId: string;
+    course: string;
+    batch: string;
+  };
+  proof?: {
+    type: string;
+    created: string;
+    proofPurpose: string;
+    verificationMethod: string;
+    jws: string;
+  };
+}
+

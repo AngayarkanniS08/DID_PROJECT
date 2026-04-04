@@ -18,6 +18,8 @@ import Constants from 'expo-constants';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { StorageService, CredentialData } from './services/StorageService';
 import { TOTPService } from './services/TOTPService';
+import QRCode from 'react-native-qrcode-svg';
+import { Signer, KeyManager } from '@secure-verify/did-core';
 
 
 export const App = () => {
@@ -30,8 +32,9 @@ export const App = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [totpCode, setTotpCode] = useState('');
   const [secondsRemaining, setSecondsRemaining] = useState(30);
+  const [qrValue, setQrValue] = useState<string>('');
 
-  const apiUrl = Constants?.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+  const apiUrl = Constants?.expoConfig?.extra?.apiUrl || 'http://192.168.1.5:3001';
 
 
   useEffect(() => {
@@ -43,8 +46,8 @@ export const App = () => {
           setCredential(cached);
           // If we have a credential, start TOTP
           if (cached.payload) {
-             const secret = JSON.parse(cached.payload).totpSecret || 'ABCDEF123456';
-             setTotpCode(TOTPService.generateCode(secret));
+            const secret = JSON.parse(cached.payload).totpSecret || 'ABCDEF1234567890';
+            setTotpCode(TOTPService.generateCode(secret));
           }
         }
       } catch (e) {
@@ -81,7 +84,7 @@ export const App = () => {
     const interval = setInterval(() => {
       const remaining = TOTPService.getSecondsRemaining();
       setSecondsRemaining(remaining);
-      
+
       if (remaining === 30 || totpCode === '') {
         const secret = credential.payload ? (JSON.parse(credential.payload).totpSecret || 'ABCDEF123456') : 'ABCDEF123456';
         setTotpCode(TOTPService.generateCode(secret));
@@ -90,6 +93,48 @@ export const App = () => {
 
     return () => clearInterval(interval);
   }, [credential, totpCode]);
+
+  // Dynamic QR Code Generation (Anti-Replay / Holders Binding)
+  useEffect(() => {
+    let interval: any;
+
+    const generateLiveProof = async () => {
+      if (!credential || !isFlipped) return;
+      try {
+        const pk = await StorageService.getPrivateKey();
+        if (!pk) {
+          setQrValue(credential.payload || '');
+          return;
+        }
+
+        const wallet = KeyManager.getWalletFromPrivateKey(pk);
+        const timestamp = Math.floor(Date.now() / 1000);
+
+        // Sign the current timestamp to prove liveness (Holders Binding)
+        const sig = await Signer.signMessage(timestamp.toString(), wallet);
+
+        // Combine with VC into a 'Live Proof' container
+        const liveProof = {
+          vc: JSON.parse(credential.payload || '{}'),
+          t: timestamp,
+          s: sig
+        };
+        setQrValue(JSON.stringify(liveProof));
+      } catch (err) {
+        console.error('Failed to generate dynamic QR:', err);
+        setQrValue(credential.payload || '');
+      }
+    };
+
+    if (isFlipped && credential) {
+      generateLiveProof();
+      interval = setInterval(generateLiveProof, 10000);
+    } else if (credential) {
+      setQrValue(credential.payload || '');
+    }
+
+    return () => clearInterval(interval);
+  }, [isFlipped, credential]);
 
   const parseDeepLink = (url: string) => {
     try {
@@ -139,7 +184,7 @@ export const App = () => {
   const handleDigiLockerVerify = async () => {
     try {
       setIsDigilockerLoading(true);
-      const response = await fetch(`${apiUrl}/digilocker/auth-url`);
+      const response = await fetch(`${apiUrl}/api/digilocker/auth-url`);
       const data = await response.json();
       if (data.url) {
         Linking.openURL(data.url);
@@ -154,7 +199,7 @@ export const App = () => {
   const handleDigiLockerCallback = async (code: string) => {
     try {
       setIsDigilockerLoading(true);
-      const response = await fetch(`${apiUrl}/digilocker/callback`, {
+      const response = await fetch(`${apiUrl}/api/digilocker/callback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
@@ -170,10 +215,11 @@ export const App = () => {
         };
         setCredential(credData);
         await StorageService.saveCredential(credData);
-        
+
         // Start TOTP
-        if (data.credential.payload.totpSecret) {
-          setTotpCode(TOTPService.generateCode(data.credential.payload.totpSecret));
+        const secret = data.totpSecret || data.credential.payload.totpSecret;
+        if (secret) {
+          setTotpCode(TOTPService.generateCode(secret));
         }
 
         Alert.alert('Success', 'Credential verified and issued via DigiLocker!');
@@ -219,16 +265,63 @@ export const App = () => {
     }
   };
 
-
   const handleLogout = async () => {
     Alert.alert('Logout', 'Are you sure you want to clear your credentials?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => {
-        await StorageService.clearAll();
-        setCredential(null);
-        setTotpCode('');
-      }}
+      {
+        text: 'Logout', style: 'destructive', onPress: async () => {
+          await StorageService.clearAll();
+          setCredential(null);
+          setTotpCode('');
+        }
+      }
     ]);
+  };
+
+  // 🧪 DEV BYPASS: Instantly issue Alice Johnson's credential
+  const handleDevBypass = async () => {
+    try {
+      setIsDigilockerLoading(true);
+      const response = await fetch(`${apiUrl}/api/digilocker/callback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: 'MOCK_CODE_ALICE' }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        const credData: CredentialData = {
+          did: data.did,
+          name: data.studentName,
+          roll: data.rollNumber,
+          payload: JSON.stringify(data.credential.payload),
+        };
+        setCredential(credData);
+        await StorageService.saveCredential(credData);
+
+        // Use totpSecret from top-level if available, or from payload
+        const secret = data.totpSecret || data.credential.payload.totpSecret;
+        if (secret) {
+          setTotpCode(TOTPService.generateCode(secret));
+        }
+
+        Alert.alert('Dev Success', 'Mock credential issued!');
+      } else {
+        Alert.alert('Mock Failed', data.message || 'Verification failed');
+      }
+    } catch (error) {
+      // If network fails, do a 100% local mock
+      const localMock: CredentialData = {
+        did: 'did:ethr:0x1234567890abcdef',
+        name: 'Alice Johnson (Offline Mock)',
+        roll: '101',
+        payload: JSON.stringify({ totpSecret: 'ABCDEF123456' }),
+      };
+      setCredential(localMock);
+      setTotpCode(TOTPService.generateCode('ABCDEF123456'));
+      Alert.alert('Dev Offline', 'Issued local-only mock data.');
+    } finally {
+      setIsDigilockerLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -246,94 +339,95 @@ export const App = () => {
       <View style={[styles.container, { backgroundColor: '#0f172a' }]}>
         <StatusBar barStyle="light-content" />
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-           
-           {/* The Hero Card */}
-           <TouchableOpacity activeOpacity={0.9} onPress={handleRevealQR} style={styles.cardContainer}>
-              {!isFlipped ? (
-                /* CARD FRONT */
-                <View style={styles.heroCardFront}>
-                   <View style={styles.cardGlass}>
-                      <View style={styles.cardHeaderSmall}>
-                         <Text style={styles.cardIssuerText}>SECURE VERIFY • STUDENT ID</Text>
-                         <TouchableOpacity onPress={handleLogout}>
-                            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#94a3b8">
-                               <Path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </Svg>
-                         </TouchableOpacity>
-                      </View>
 
-                      <View style={styles.cardMainInfo}>
-                         <View style={styles.photoContainer}>
-                            <Image 
-                               source={{ uri: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400&h=400&fit=crop' }} 
-                               style={styles.profilePhoto} 
-                            />
-                         </View>
-                         <View style={styles.textInfo}>
-                            <Text style={styles.heroName}>{credential.name || 'Student Name'}</Text>
-                            <Text style={styles.heroRoll}>{credential.roll || '20CS001'}</Text>
-                            <Text style={styles.heroDept}>Computer Science Engineering</Text>
-                         </View>
-                      </View>
+          {/* The Hero Card */}
+          <TouchableOpacity activeOpacity={0.9} onPress={handleRevealQR} style={styles.cardContainer}>
+            {!isFlipped ? (
+              /* CARD FRONT */
+              <View style={styles.heroCardFront}>
+                <View style={styles.cardGlass}>
+                  <View style={styles.cardHeaderSmall}>
+                    <Text style={styles.cardIssuerText}>SECURE VERIFY • STUDENT ID</Text>
+                    <TouchableOpacity onPress={handleLogout}>
+                      <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#94a3b8">
+                        <Path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </Svg>
+                    </TouchableOpacity>
 
-                      <View style={styles.cardFooter}>
-                         <View>
-                            <Text style={styles.footerLabel}>DID IDENTIFIER</Text>
-                            <Text style={styles.footerValue}>{credential.did?.substring(0, 24)}...</Text>
-                         </View>
-                         <View style={styles.statusBadge}>
-                            <View style={styles.statusDot} />
-                            <Text style={styles.statusText}>ACTIVE</Text>
-                         </View>
-                      </View>
-                   </View>
+                  </View>
+
+                  <View style={styles.cardMainInfo}>
+                    <View style={styles.photoContainer}>
+                      <Image
+                        source={{ uri: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400&h=400&fit=crop' }}
+                        style={styles.profilePhoto}
+                      />
+                    </View>
+                    <View style={styles.textInfo}>
+                      <Text style={styles.heroName}>{credential.name || 'Student Name'}</Text>
+                      <Text style={styles.heroRoll}>{credential.roll || '20CS001'}</Text>
+                      <Text style={styles.heroDept}>Computer Science Engineering</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardFooter}>
+                    <View>
+                      <Text style={styles.footerLabel}>DID IDENTIFIER</Text>
+                      <Text style={styles.footerValue}>{credential.did?.substring(0, 24)}...</Text>
+                    </View>
+                    <View style={styles.statusBadge}>
+                      <View style={styles.statusDot} />
+                      <Text style={styles.statusText}>ACTIVE</Text>
+                    </View>
+                  </View>
                 </View>
-              ) : (
-                /* CARD BACK (QR REVEAL) */
-                <View style={styles.heroCardBack}>
-                   <View style={[styles.cardGlass, { alignItems: 'center', justifyContent: 'center' }]}>
-                      <Text style={[styles.cardIssuerText, { marginBottom: 20 }]}>SECURE VERIFICATION CODE</Text>
-                      
-                      <View style={styles.qrWrapper}>
-                         <View style={{ backgroundColor: '#fff', padding: 10, borderRadius: 12 }}>
-                            <Svg width={180} height={180} viewBox="0 0 24 24" fill="none" stroke="#000">
-                               <Path strokeWidth="1" d="M3 3h4v4H3zM17 3h4v4h-4zM3 17h4v4H3zM9 3h2v2H9zM13 3h2v2h-2zM9 7h2v2H9zM13 7h2v2h-2zM17 9h2v2h-2zM17 13h2v2h-2z" />
-                               <Rect x="5" y="5" width="2" height="2" />
-                               <Rect x="17" y="5" width="2" height="2" />
-                               <Rect x="5" y="17" width="2" height="2" />
-                               <Path d="M9 9h6v6H9z" fill="#000" />
-                            </Svg>
-                         </View>
-                      </View>
+              </View>
+            ) : (
+              /* CARD BACK (QR REVEAL) */
+              <View style={styles.heroCardBack}>
+                <View style={[styles.cardGlass, { alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={[styles.cardIssuerText, { marginBottom: 20 }]}>SECURE VERIFICATION CODE</Text>
 
-                      <View style={styles.totpContainer}>
-                         <Text style={styles.totpLabel}>DYNAMIC PASSCODE</Text>
-                         <Text style={styles.totpCode}>{totpCode || 'XXX XXX'}</Text>
-                         <View style={styles.timerBarBg}>
-                            <View style={[styles.timerBarFill, { width: `${(secondsRemaining / 30) * 100}%` }]} />
-                         </View>
-                         <Text style={styles.timerText}>Refreshes in {secondsRemaining}s</Text>
-                      </View>
+                  <View style={styles.qrWrapper}>
+                    <View style={{ backgroundColor: '#fff', padding: 12, borderRadius: 16 }}>
+                      <QRCode
+                        value={qrValue || 'placeholder'}
+                        size={180}
+                        backgroundColor="transparent"
+                        color="#10b981"
+                        ecl="M"
+                      />
+                    </View>
+                  </View>
 
-                      <Text style={styles.tapToClose}>Tap to hide</Text>
-                   </View>
+                  <View style={styles.totpContainer}>
+                    <Text style={styles.totpLabel}>DYNAMIC PASSCODE</Text>
+                    <Text style={styles.totpCode}>{totpCode || 'XXX XXX'}</Text>
+                    <View style={styles.timerBarBg}>
+                      <View style={[styles.timerBarFill, { width: `${(secondsRemaining / 30) * 100}%` }]} />
+                    </View>
+                    <Text style={styles.timerText}>Refreshes in {secondsRemaining}s</Text>
+                  </View>
+
+                  <Text style={styles.tapToClose}>Tap to hide</Text>
                 </View>
-              )}
-           </TouchableOpacity>
+              </View>
+            )}
+          </TouchableOpacity>
 
-           <View style={styles.instructions}>
-              <Text style={styles.instructionText}>
-                 Tap the card to reveal your secure QR code for verification.
-              </Text>
-           </View>
+          <View style={styles.instructions}>
+            <Text style={styles.instructionText}>
+              Tap the card to reveal your secure QR code for verification.
+            </Text>
+          </View>
 
-           {isAuthenticating && (
-             <View style={styles.authOverlay}>
-                <ActivityIndicator size="large" color="#60a5fa" />
-                <Text style={styles.authText}>Authenticating...</Text>
-             </View>
-           )}
-          </ScrollView>
+          {isAuthenticating && (
+            <View style={styles.authOverlay}>
+              <ActivityIndicator size="large" color="#60a5fa" />
+              <Text style={styles.authText}>Authenticating...</Text>
+            </View>
+          )}
+        </ScrollView>
       </View>
     );
   }
@@ -392,32 +486,39 @@ export const App = () => {
         {/* DigiLocker Section */}
         <View style={styles.section}>
           <View style={[styles.shadowBox, { backgroundColor: '#1e293b' }]}>
-             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="#60a5fa">
-                  <Path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A3.323 3.323 0 0010.65 15c0 1.304-.54 2.483-1.414 3.333m1.414-3.333a3.323 3.323 0 01-1.414-3.333m5.242-4.14a3.323 3.323 0 011.414 3.333M12.35 15a3.323 3.323 0 001.414-3.333M9.13 18.243A9.953 9.953 0 0112 18c4.477 0 8.268-2.943 9.542-7" />
-                </Svg>
-                <Text style={[styles.textMd, { color: '#ffffff', marginLeft: 12, fontWeight: 'bold' }]}>Student Self-Verification</Text>
-             </View>
-             <Text style={[styles.textSm, { color: '#94a3b8', marginBottom: 20 }]}>
-                No credentials yet? Verify your identity using DigiLocker to automatically receive your Student DID.
-             </Text>
-             
-             <TouchableOpacity 
-                style={[styles.digilockerButton, isDigilockerLoading && { opacity: 0.7 }]}
-                onPress={handleDigiLockerVerify}
-                disabled={isDigilockerLoading}
-              >
-                {isDigilockerLoading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <>
-                    <Text style={styles.digilockerButtonText}>Verify with DigiLocker</Text>
-                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#ffffff">
-                      <Path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </Svg>
-                  </>
-                )}
-             </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="#60a5fa">
+                <Path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A3.323 3.323 0 0010.65 15c0 1.304-.54 2.483-1.414 3.333m1.414-3.333a3.323 3.323 0 01-1.414-3.333m5.242-4.14a3.323 3.323 0 011.414 3.333M12.35 15a3.323 3.323 0 001.414-3.333M9.13 18.243A9.953 9.953 0 0112 18c4.477 0 8.268-2.943 9.542-7" />
+              </Svg>
+              <Text style={[styles.textMd, { color: '#ffffff', marginLeft: 12, fontWeight: 'bold' }]}>Student Self-Verification</Text>
+            </View>
+            <Text style={[styles.textSm, { color: '#94a3b8', marginBottom: 20 }]}>
+              No credentials yet? Verify your identity using DigiLocker to automatically receive your Student DID.
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.digilockerButton, isDigilockerLoading && { opacity: 0.7 }]}
+              onPress={handleDigiLockerVerify}
+              disabled={isDigilockerLoading}
+            >
+              {isDigilockerLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <>
+                  <Text style={styles.digilockerButtonText}>Verify with DigiLocker</Text>
+                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#ffffff">
+                    <Path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </Svg>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.digilockerButton, { marginTop: 12, backgroundColor: '#334155', borderWidth: 1, borderColor: '#475569' }]}
+              onPress={handleDevBypass}
+            >
+              <Text style={[styles.digilockerButtonText, { color: '#94a3b8' }]}>Dev: Skip to Success (Mock)</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1121,11 +1222,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  
+
   /* Hero Card Styles */
   cardContainer: {
     width: Dimensions.get('window').width - 40,
-    height: 250,
+    height: 450,
     borderRadius: 24,
     marginBottom: 30,
     // Note: React Native does not support true 3D flip without Reanimated/Moti,
@@ -1238,7 +1339,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  
+
   /* QR / TOTP Styles */
   qrWrapper: {
     shadowColor: '#000',
@@ -1286,7 +1387,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 20,
   },
-  
+
   instructions: {
     marginTop: 10,
     paddingHorizontal: 40,
@@ -1297,7 +1398,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  
+
   authOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.8)',

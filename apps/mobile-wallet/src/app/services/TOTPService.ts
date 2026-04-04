@@ -6,15 +6,21 @@ export class TOTPService {
    * Defaults to 30-second intervals (standard).
    */
   static generateCode(secret: string): string {
-    const totp = new OTPAuth.TOTP({
-      issuer: 'SecureVerify',
-      label: 'StudentIdentity',
-      algorithm: 'SHA1',
-      digits: 6,
-      period: 30,
-      secret: secret,
-    });
-    return totp.generate();
+    try {
+      if (!secret) return '000000';
+      const totp = new OTPAuth.TOTP({
+        issuer: 'SecureVerify',
+        label: 'StudentIdentity',
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+        secret: secret,
+      });
+      return totp.generate();
+    } catch (error) {
+      console.warn('TOTP Generation failed (Malformed secret):', error);
+      return '000000';
+    }
   }
 
   /**

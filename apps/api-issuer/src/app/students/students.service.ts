@@ -379,12 +379,71 @@ export class StudentsService {
 
       return result;
     } catch (error) {
-      this.logger.error(`Failed to send credential email: ${error}`);
+      this.logger.error(`Failed to send credential email to student ${studentId}`);
+      this.logger.error(error instanceof Error ? error.stack : error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  }
+
+  async batchSendEmails(ids: string[]): Promise<any> {
+    this.logger.log(`Batch sending emails for ${ids.length} students`);
+
+    const students = await this.studentsRepository.find({
+      where: { id: In(ids), status: StudentStatus.ACTIVE },
+    });
+
+    const results = {
+      total: ids.length,
+      success: 0,
+      failed: 0,
+      noEmail: 0,
+      notActive: ids.length - students.length,
+    };
+
+    const appScheme = this.configService.get('APP_SCHEME') || 'mobile-wallet';
+
+    for (const student of students) {
+      if (!student.email) {
+        results.noEmail++;
+        continue;
+      }
+
+      try {
+        await this.mailerService.sendCredentialEmail({
+          to: student.email,
+          name: student.name,
+          rollNumber: student.rollNumber,
+          did: student.did,
+          appScheme,
+        });
+        results.success++;
+      } catch (err) {
+        this.logger.error(
+          `Failed to send email to student ${student.id}: ${err.message}`,
+        );
+        results.failed++;
+      }
+    }
+
+    return results;
+  }
+
+  async revokeStudent(id: string): Promise<Student> {
+    this.logger.log(`Revoking student ${id}`);
+    const student = await this.findOne(id);
+    student.status = StudentStatus.REVOKED;
+    return this.studentsRepository.save(student);
+  }
+
+  async getStatus(did: string): Promise<{ did: string; status: StudentStatus }> {
+    const student = await this.studentsRepository.findOne({ where: { did } });
+    if (!student) {
+      throw new NotFoundException(`Student with DID ${did} not found`);
+    }
+    return { did: student.did, status: student.status };
   }
 
   async batchIssueCredentials(ids: string[]): Promise<any> {

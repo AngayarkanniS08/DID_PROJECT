@@ -113,6 +113,28 @@ export class StudentsController {
     return this.studentsService.sendCredentialEmail(id);
   }
 
+  @Post('batch-send-email')
+  async batchSendEmail(@Body() body: { ids: string[] }) {
+    if (!body.ids || !Array.isArray(body.ids)) {
+      throw new HttpException(
+        'Student IDs must be provided as an array',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return this.studentsService.batchSendEmails(body.ids);
+  }
+
+  @Post(':id/revoke')
+  async revoke(@Param('id') id: string) {
+    return this.studentsService.revokeStudent(id);
+  }
+
+  @Public()
+  @Get('status/:did')
+  async getStatus(@Param('did') did: string) {
+    return this.studentsService.getStatus(did);
+  }
+
   @Public()
   @Post('verify')
   async verify(@Body() payload: any) {

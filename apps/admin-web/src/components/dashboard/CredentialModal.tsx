@@ -112,14 +112,46 @@ export const CredentialPreviewModal: React.FC<CredentialPreviewModalProps> = ({ 
                         <div className="modal-actions">
                             <button onClick={onClose} style={{ minWidth: 60 }}>Done</button>
                             <button
-                                onClick={() => {
-                                    const shareUrl = `${window.location.origin}/share/${student.id}`;
-                                    navigator.clipboard.writeText(shareUrl);
-                                    alert("Magic Link copied to clipboard!");
+                                className="em-bg"
+                                style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ff8080', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                onClick={async () => {
+                                    if (window.confirm("Are you sure you want to revoke this credential? This cannot be undone.")) {
+                                        try {
+                                            await studentService.revokeStudent(student.id);
+                                            alert("Credential revoked successfully!");
+                                            onClose();
+                                        } catch (err) {
+                                            alert("Failed to revoke credential.");
+                                        }
+                                    }
                                 }}
-                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'var(--text)' }}
                             >
-                                Copy Share Link
+                                <Icon.XCircle /> Revoke
+                            </button>
+                            <button
+                                className="em-bg"
+                                onClick={async (e) => {
+                                    const btn = e.currentTarget;
+                                    const originalText = btn.innerHTML;
+                                    try {
+                                        btn.disabled = true;
+                                        btn.innerHTML = '<span class="loading-spinner"></span> Sending...';
+                                        const result = await studentService.sendCredentialEmail(student.id);
+                                        if (result.success) {
+                                            alert("Credential email sent successfully!");
+                                        } else {
+                                            alert(`Failed: ${result.error || "Unknown error"}`);
+                                        }
+                                    } catch (err: any) {
+                                        console.error("Send Email Error:", err);
+                                        alert(`Error: ${err.response?.data?.message || err.message || "Request failed"}`);
+                                    } finally {
+                                        btn.disabled = false;
+                                        btn.innerHTML = originalText;
+                                    }
+                                }}
+                            >
+                                <Icon.Mail /> Send Email
                             </button>
                             <button className="em-bg" onClick={downloadJson}>
                                 <Icon.Download /> Download JSON

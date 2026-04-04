@@ -68,4 +68,31 @@ export const studentService = {
             throw error;
         }
     },
+    sendCredentialEmail: async (id: string) => {
+        try {
+            const response = await api.post(`/students/${id}/send-email`);
+            return response.data;
+        } catch (error) {
+            console.error('Send Email Error:', error);
+            throw error;
+        }
+    },
+    batchSendEmails: async (ids: string[]) => {
+        try {
+            const response = await api.post(`/students/batch-send-email`, { ids });
+            return response.data;
+        } catch (error) {
+            console.error('Batch Send Email Error:', error);
+            throw error;
+        }
+    },
+    revokeStudent: async (id: string) => {
+        try {
+            const response = await api.post(`/students/${id}/revoke`);
+            return response.data;
+        } catch (error) {
+            console.error('Revoke Error:', error);
+            throw error;
+        }
+    },
 };

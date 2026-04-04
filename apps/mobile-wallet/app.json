@@ -16,7 +16,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.angayarkanni.mobilewallet"
     },
     "web": {
       "bundler": "metro",
@@ -32,6 +33,12 @@
           "backgroundColor": "#ffffff"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "apiUrl": "http://192.168.1.5:3000",
+      "eas": {
+        "projectId": "9395f8e0-70c8-48f2-ac68-4dc204b6d174"
+      }
+    }
   }
 }

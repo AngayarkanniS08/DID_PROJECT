@@ -66,6 +66,41 @@ export function Dashboard() {
         }
     };
 
+    const handleBatchEmail = async () => {
+        if (selectedIds.length === 0) return;
+
+        try {
+            setIsIssuing(true); // Reuse loading state
+            const report = await studentService.batchSendEmails(selectedIds);
+            alert(`Emails sent! Success: ${report.success}, Failed: ${report.failed}, No Email: ${report.noEmail}, Not Active: ${report.notActive}`);
+        } catch (error) {
+            console.error("Batch email failed", error);
+            alert("Failed to send emails. Check console.");
+        } finally {
+            setIsIssuing(false);
+        }
+    };
+
+    const handleBatchRevoke = async () => {
+        if (selectedIds.length === 0) return;
+
+        if (window.confirm(`Are you sure you want to revoke ${selectedIds.length} credentials?`)) {
+            try {
+                setIsIssuing(true);
+                for (const id of selectedIds) {
+                    await studentService.revokeStudent(id);
+                }
+                alert(`Succesfully revoked ${selectedIds.length} credentials!`);
+                loadDashboardData();
+            } catch (error) {
+                console.error("Batch revoke failed", error);
+                alert("Failed to revoke some credentials.");
+            } finally {
+                setIsIssuing(false);
+            }
+        }
+    };
+
     React.useEffect(() => {
         loadDashboardData();
     }, []);
@@ -85,7 +120,11 @@ export function Dashboard() {
         );
     });
 
-    const displayStudents = activeNav === "users" ? filteredStudents : students.slice(0, 5);
+    const displayStudents = activeNav === "users" 
+        ? filteredStudents.filter(s => s.status !== 'REVOKED') 
+        : activeNav === "revoked"
+        ? filteredStudents.filter(s => s.status === 'REVOKED')
+        : students.slice(0, 5);
 
     // Map stats dynamically
     const statsData = [
@@ -112,9 +151,9 @@ export function Dashboard() {
         {
             id: "revoked",
             title: "Revoked IDs",
-            value: "0",
+            value: students.filter(s => s.status === 'REVOKED').length.toString(),
             colorClass: "rose",
-            trendText: "0% loss rate",
+            trendText: `${((students.filter(s => s.status === 'REVOKED').length / (totalStudentsCount || 1)) * 100).toFixed(1)}% loss rate`,
             trendDir: "down" as const,
             sparkHeights: [80, 60, 45, 75, 30, 50, 40],
             IconComponent: Icon.XCircle,
@@ -231,28 +270,66 @@ export function Dashboard() {
                             <div className="card-header">
                                 <div className="card-title">
                                     <Icon.Users />
-                                    User Directory ({filteredStudents.length} {searchValue ? 'Found' : 'Total'})
+                                    User Directory ({displayStudents.length} {searchValue ? 'Found' : 'Active'})
                                 </div>
                                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                     {selectedIds.length > 0 && (
-                                        <button
-                                            className="btn-batch"
-                                            onClick={handleBatchIssue}
-                                            disabled={isIssuing}
-                                        >
-                                            <Icon.Plus />
-                                            {isIssuing ? "Issuing..." : `Issue Credentials to ${selectedIds.length}`}
-                                        </button>
+                                        <>
+                                            <button
+                                                className="btn-batch"
+                                                onClick={handleBatchIssue}
+                                                disabled={isIssuing}
+                                            >
+                                                <Icon.Plus />
+                                                {isIssuing ? "Issuing..." : `Issue Credentials to ${selectedIds.length}`}
+                                            </button>
+                                            <button
+                                                className="btn-batch"
+                                                onClick={handleBatchEmail}
+                                                disabled={isIssuing}
+                                                style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#60A5FA', borderColor: 'rgba(59, 130, 246, 0.2)' }}
+                                            >
+                                                <Icon.Mail />
+                                                {isIssuing ? "Sending..." : `Send Email to ${selectedIds.length}`}
+                                            </button>
+                                            <button
+                                                className="btn-batch"
+                                                onClick={handleBatchRevoke}
+                                                disabled={isIssuing}
+                                                style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ff8080', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                            >
+                                                <Icon.XCircle />
+                                                {isIssuing ? "Revoking..." : `Revoke ${selectedIds.length}`}
+                                            </button>
+                                        </>
                                     )}
                                     <button className="card-action" onClick={loadDashboardData}>↻ Refresh</button>
                                 </div>
                             </div>
                             <div className="table-wrap">
                                 <ActivityTable
-                                    rows={filteredStudents.map(s => ({ ...s, rollNo: s.rollNumber, status: s.status || "UNISSUED", time: "Imported" }))}
+                                    rows={displayStudents.map(s => ({ ...s, rollNo: s.rollNumber, status: s.status || "UNISSUED", time: "Imported" }))}
                                     selectable={true}
                                     selectedIds={selectedIds}
                                     onSelectionChange={setSelectedIds}
+                                    onViewClick={(row) => setPreviewStudentId(row.id)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                ) : activeNav === "revoked" ? (
+                    <div className="content full-page">
+                        <div className="card" style={{ borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                            <div className="card-header">
+                                <div className="card-title" style={{ color: '#ff8080' }}>
+                                    <Icon.XCircle />
+                                    Revoked Credential Registry ({displayStudents.length})
+                                </div>
+                                <button className="card-action" onClick={loadDashboardData}>↻ Refresh</button>
+                            </div>
+                            <div className="table-wrap">
+                                <ActivityTable
+                                    rows={displayStudents.map(s => ({ ...s, rollNo: s.rollNumber, status: "REVOKED", time: "Revoked" }))}
                                     onViewClick={(row) => setPreviewStudentId(row.id)}
                                 />
                             </div>

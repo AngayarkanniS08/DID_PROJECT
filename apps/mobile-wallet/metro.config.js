@@ -1,33 +1,36 @@
-const { withNxMetro } = require('@nx/expo');
-const { getDefaultConfig } = require('@expo/metro-config');
-const { mergeConfig } = require('metro-config');
+const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
 
-const defaultConfig = getDefaultConfig(__dirname);
-const { assetExts, sourceExts } = defaultConfig.resolver;
+const projectRoot = __dirname;
+const appNodeModules = path.resolve(projectRoot, 'node_modules');
 
-/**
- * Metro configuration
- * https://reactnative.dev/docs/metro
- *
- * @type {import('metro-config').MetroConfig}
- */
-const customConfig = {
-  cacheVersion: 'mobile-wallet',
-  transformer: {
-    babelTransformerPath: require.resolve('react-native-svg-transformer'),
-  },
-  resolver: {
-    assetExts: assetExts.filter((ext) => ext !== 'svg'),
-    sourceExts: [...sourceExts, 'cjs', 'mjs', 'svg'],
-  },
+// Get default Expo config - handles monorepo automatically since SDK 52
+const config = getDefaultConfig(projectRoot);
+
+const { assetExts, sourceExts } = config.resolver;
+
+// SVG transformer support
+config.transformer = {
+  ...config.transformer,
+  babelTransformerPath: require.resolve('react-native-svg-transformer'),
+};
+config.resolver.assetExts = assetExts.filter((ext) => ext !== 'svg');
+config.resolver.sourceExts = [...sourceExts, 'cjs', 'mjs', 'svg'];
+
+// Map local package to its built location.
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  '@secure-verify/did-core': path.resolve(
+    __dirname,
+    '../../packages/did-core'
+  ),
+  'ethers': path.join(appNodeModules, 'ethers'),
+  'otpauth': path.join(appNodeModules, 'otpauth'),
 };
 
-module.exports = withNxMetro(mergeConfig(defaultConfig, customConfig), {
-  // Change this to true to see debugging info.
-  // Useful if you have issues resolving modules
-  debug: false,
-  // all the file extensions used for imports other than 'ts', 'tsx', 'js', 'jsx', 'json'
-  extensions: [],
-  // Specify folders to watch, in addition to Nx defaults (workspace libraries and node_modules)
-  watchFolders: [],
-});
+// Watch the packages folder for local packages
+config.watchFolders = [path.resolve(__dirname, '../../packages')];
+
+config.cacheVersion = 'mobile-wallet-v1';
+
+module.exports = config;

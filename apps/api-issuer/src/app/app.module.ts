@@ -14,6 +14,7 @@ import { StudentsModule } from './students/students.module';
 import { SetupModule } from './setup/setup.module';
 import { MerkleModule } from './merkle/merkle.module';
 import { MailerModule } from './mailer/mailer.module';
+import { DigilockerModule } from './digilocker/digilocker.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { MailerModule } from './mailer/mailer.module';
     SetupModule,
     MerkleModule,
     MailerModule,
+    DigilockerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

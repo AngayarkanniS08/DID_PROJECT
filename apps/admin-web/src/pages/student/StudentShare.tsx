@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { studentService } from '../../services/Student.service';
 import { Icon } from '../../components/dashboard/DashboardIcons';
-import axios from 'axios';
 import './StudentShare.css';
 
 export const StudentSharePage: React.FC = () => {
@@ -12,9 +11,6 @@ export const StudentSharePage: React.FC = () => {
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadStudent = async () => {
@@ -32,31 +28,6 @@ export const StudentSharePage: React.FC = () => {
     };
     loadStudent();
   }, [id]);
-
-  const handleSendEmail = async () => {
-    if (!id || !student?.email) return;
-
-    try {
-      setSendingEmail(true);
-      setEmailError(null);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      await axios.post(
-        `${apiUrl}/api/students/${id}/send-email`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
-          },
-        },
-      );
-      setEmailSent(true);
-    } catch (err: any) {
-      console.error('Failed to send email:', err);
-      setEmailError(err.response?.data?.error || 'Failed to send email');
-    } finally {
-      setSendingEmail(false);
-    }
-  };
 
   if (loading)
     return (
@@ -79,7 +50,6 @@ export const StudentSharePage: React.FC = () => {
     );
 
   // This is the data we encode in the QR
-  // We now use the exact payload that was signed by the backend!
   const qrData = student.credentials?.[0]?.payload
     ? JSON.stringify(student.credentials[0].payload)
     : JSON.stringify({
@@ -174,24 +144,6 @@ export const StudentSharePage: React.FC = () => {
         </div>
 
         <div className="share-actions">
-          {student?.email && (
-            <button
-              className="btn-wallet"
-              onClick={handleSendEmail}
-              disabled={sendingEmail || emailSent}
-            >
-              <Icon.Mail />
-              {sendingEmail
-                ? 'Sending...'
-                : emailSent
-                  ? 'Email Sent!'
-                  : 'Send to Student Email'}
-            </button>
-          )}
-          {emailError && <p className="error-text">{emailError}</p>}
-          {emailSent && (
-            <p className="success-text">Email sent to {student.email}</p>
-          )}
           <p className="secure-tag">🔐 End-to-End Cryptographically Signed</p>
         </div>
       </div>

@@ -4,7 +4,7 @@ import { Icon } from "./DashboardIcons";
 export const NAV_ITEMS = [
     { id: "overview", label: "Overview", Icon: Icon.Overview, count: null, countClass: "" },
     { id: "users", label: "User Directory", Icon: Icon.Users, count: "1,248", countClass: "" },
-    { id: "issuance", label: "Credential Issuance", Icon: Icon.File, count: "42", countClass: "amber" },
+    { id: "revoked", label: "Revoked Students", Icon: Icon.XCircle, count: "0", countClass: "rose" },
     { id: "logs", label: "Verification Logs", Icon: Icon.Lock, count: "840", countClass: "" },
     { id: "settings", label: "Settings", Icon: Icon.Settings, count: null, countClass: "" },
 ];
@@ -16,9 +16,10 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeNav, onNavChange, userCount }: SidebarProps) {
-    const navItems = NAV_ITEMS.map(item =>
-        item.id === "users" ? { ...item, count: userCount || item.count } : item
-    );
+    const navItems = NAV_ITEMS.map(item => {
+        if (item.id === "users") return { ...item, count: userCount || item.count };
+        return item;
+    });
 
     return (
         <aside className="sidebar">

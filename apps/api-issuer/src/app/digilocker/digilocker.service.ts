@@ -24,7 +24,7 @@ export class DigilockerService {
 
   getAuthUrl() {
     // 🛡️ MOCK MODE BYPASS (For when DigiLocker Sandbox is 503)
-    const isMock = true; 
+    const isMock = true; // 🎭 DEMO MODE — set false for real DigiLocker
     if (isMock) {
       this.logger.warn('🚀 DIGILOCKER MOCK MODE ACTIVE — Bypassing external sandbox');
       // Redirect directly back to our own callback with a mock code
@@ -51,7 +51,7 @@ export class DigilockerService {
 
     try {
       this.logger.log(`Exchanging code for token with DigiLocker...`);
-      
+
       const tokenResponse = await axios.post(
         this.tokenEndpoint,
         new URLSearchParams({
@@ -91,7 +91,7 @@ export class DigilockerService {
   private async identifyAndIssue(profile: any) {
     // DigiLocker profile usually contains 'name' and 'email' or 'mobile'
     const students = await this.studentsService.findAll();
-    
+
     // Simple heuristic: search by name matching
     // In production, you'd use a more robust identifier like Aadhaar hash or verified email
     const student = students.find(
@@ -105,7 +105,7 @@ export class DigilockerService {
 
     this.logger.log(`Matching student found: ${student.rollNumber}. Issuing DID...`);
     const credential = await this.studentsService.issueCredential(student.id);
-    
+
     return {
       success: true,
       studentName: student.name,

@@ -1,0 +1,19 @@
+{
+  "name": "did-core",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/did-core/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/did-core",
+        "main": "packages/did-core/src/index.ts",
+        "tsConfig": "packages/did-core/tsconfig.lib.json",
+        "assets": ["packages/did-core/*.md"]
+      }
+    }
+  }
+}

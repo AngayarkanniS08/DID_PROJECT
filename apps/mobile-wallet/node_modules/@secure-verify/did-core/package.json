@@ -1,0 +1,16 @@
+{
+  "name": "@secure-verify/did-core",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "dependencies": {
+    "merkletreejs": "*",
+    "keccak256": "*",
+    "react-native-get-random-values": "^1.11.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "hardhat": "^3.3.0"
+  }
+}
